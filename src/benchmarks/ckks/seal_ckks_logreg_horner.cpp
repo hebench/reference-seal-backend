@@ -168,7 +168,7 @@ seal::Plaintext LogRegHornerBenchmark::encodeW(const hebench::APIBridge::DataPac
     if (data_pack.buffer_count < 1 || !data_pack.p_buffers || !data_pack.p_buffers[0].p)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Unexpected empty DataPack for 'W'."),
                                          HEBENCH_ECODE_INVALID_ARGS);
-    // convert Test harness format to our internal clear text format
+    // convert Test Harness format to our internal clear text format
     gsl::span<const double> buffer =
         gsl::span<const double>(reinterpret_cast<const double *>(data_pack.p_buffers[0].p),
                                 data_pack.p_buffers[0].size / sizeof(double));
@@ -195,7 +195,7 @@ seal::Plaintext LogRegHornerBenchmark::encodeBias(const hebench::APIBridge::Data
         || data_pack.p_buffers[0].size < sizeof(double))
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Unexpected empty DataPack for 'b'."),
                                          HEBENCH_ECODE_INVALID_ARGS);
-    // convert Test harness format to our internal clear text format
+    // convert Test Harness format to our internal clear text format
     double bias = *reinterpret_cast<const double *>(data_pack.p_buffers[0].p);
 
     // encode
@@ -234,7 +234,7 @@ std::vector<seal::Plaintext> LogRegHornerBenchmark::encodeInputs(const hebench::
         if (!data_pack.p_buffers[input_sample_i].p)
             throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Unexpected empty input sample " + std::to_string(input_sample_i) + "."),
                                              HEBENCH_ECODE_INVALID_ARGS);
-        // convert Test harness format to our internal clear text format
+        // convert Test Harness format to our internal clear text format
         gsl::span<const double> buffer =
             gsl::span<const double>(reinterpret_cast<const double *>(data_pack.p_buffers[input_sample_i].p),
                                     data_pack.p_buffers[input_sample_i].size / sizeof(double));
@@ -276,7 +276,7 @@ void LogRegHornerBenchmark::decode(hebench::APIBridge::Handle h_encoded_data, he
         std::vector<double> decoded;
         m_p_ctx_wrapper->CKKSEncoder()->decode(encoded, decoded);
         decoded.resize(min_count);
-        // convert local format to Test harness format
+        // convert local format to Test Harness format
         for (std::uint64_t result_sample_i = 0; result_sample_i < min_count; ++result_sample_i)
         {
             if (result.p_buffers[result_sample_i].p && result.p_buffers[result_sample_i].size >= sizeof(double))
