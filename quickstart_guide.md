@@ -4,7 +4,7 @@
 
 This guide will walk you through the steps of running the benchmark for the reference SEAL backend. Note the default configuration for this backend may take an extended amount of time on some systems. If you'd like to reduce the amount of workloads run, please refer to the [Test Harness User Guide](https://hebench.github.io/frontend/test_harness_usage_guide.html) and the [Benchmark Configuration File Reference](https://hebench.github.io/frontend/config_file_reference.html) on modifying backend configuration files.
 
-1. Pick the SEAL backend repository from the list of [published backends](hebench_published_backends.md), or visit direct link to [SEAL backend repository](https://github.com/hebench/backend-cpu-seal).
+1. Pick the SEAL backend repository from the list of [published backends](https://hebench.github.io/hebench_published_backends.html), or visit direct link to [SEAL backend repository](https://github.com/hebench/backend-cpu-seal).
 
 2. Check the [readme](https://github.com/hebench/backend-cpu-seal/blob/main/README.md) for requirements to build the backend.
    Make sure the machine where the build will occur meets such requirements.
