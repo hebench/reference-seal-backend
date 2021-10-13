@@ -19,6 +19,8 @@ Current build system uses Cmake.
 - C++17 capable compiler (tested with GCC 9.3)
 - CMake 3.12
 
+For a quick guide on getting started with the SEAL CPU Reference Backend, please refer to the [Quickstart Guide](quickstart_guide.md). Otherwise, for a more detailed walkthrough on modifying the build configuration / running this backend, continue below.
+
 ## Build Configuration <a name="build-configuration"></a>
 
 By default, the build system will pull the required third-party component versions from remote repos and build locally. Thus, this build system requires Internet access and being able to clone the required third-party repos using `git`.
