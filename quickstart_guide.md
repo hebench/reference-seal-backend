@@ -11,7 +11,7 @@ This guide will walk you through the steps of running the benchmark for the refe
 
 3. Clone the repo to your local machine<b>*</b>.
 
-   Assume the repo will be cloned cloned to the location contained in environment variable `$SEAL_BACKEND`.
+   Assume the repo will be cloned to the location contained in environment variable `$SEAL_BACKEND`.
 
    Note that repo URL may change. Obtain the correct URL from the GitHub repo itself.
 
