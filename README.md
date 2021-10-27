@@ -15,7 +15,7 @@
 ## Requirements <a name="requirements1"></a>
 Current build system uses Cmake.
 
-- Ubuntu 16.04 or 18.04
+- Ubuntu 16.04/18.04/20.04
 - C++17 capable compiler (tested with GCC 9.3)
 - CMake 3.12
 
