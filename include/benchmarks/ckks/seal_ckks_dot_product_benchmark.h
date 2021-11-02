@@ -15,18 +15,29 @@ namespace ckks {
 class DotProductBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(DotProductBenchmarkDescription)
-    static constexpr std::uint64_t NumWorkloadParams  = 1;
+    HEBERROR_DECLARE_CLASS_NAME(ckks::DotProductBenchmarkDescription)
     static constexpr const char *AlgorithmName        = "Vector";
     static constexpr const char *AlgorithmDescription = "One vector per ciphertext";
+    static constexpr std::size_t NumOpParams          = 2;
 
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 2;
     static constexpr std::size_t DefaultCoeffMudulusBits    = 40;
-    static constexpr int DefaultScaleBits                   = DefaultCoeffMudulusBits;
+    static constexpr std::size_t DefaultScaleBits           = DefaultCoeffMudulusBits;
+
+    enum : std::uint64_t
+    {
+        Index_WParamsStart = 0,
+        Index_n            = Index_WParamsStart,
+        Index_ExtraWParamsStart,
+        Index_PolyModulusDegree = Index_ExtraWParamsStart,
+        Index_NumCoefficientModuli,
+        Index_CoefficientModulusBits,
+        Index_ScaleExponentBits,
+        NumWorkloadParams // This workload requires 1 parameters, and we add 4 encryption params
+    };
 
 public:
-    DotProductBenchmarkDescription() {}
     DotProductBenchmarkDescription(hebench::APIBridge::Category category);
     ~DotProductBenchmarkDescription() override;
 
@@ -39,7 +50,7 @@ public:
 class DotProductBenchmark : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(DotProductBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::DotProductBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x1;

@@ -5,14 +5,17 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
-#include <iostream>
 #include <memory>
+#include <mutex>
+#include <sstream>
+#include <stdexcept>
 #include <vector>
 
 #include "benchmarks/bfv/seal_bfv_dot_product_benchmark.h"
 #include "engine/seal_types.h"
 
 using namespace sbe::bfv;
+
 //-----------------------------------
 // class DotProductBenchmarkDescription
 //-----------------------------------
@@ -95,13 +98,22 @@ DotProductBenchmark::DotProductBenchmark(hebench::cpp::BaseEngine &engine,
                                          const hebench::APIBridge::WorkloadParams &bench_params) :
     hebench::cpp::BaseBenchmark(engine, bench_desc, bench_params)
 {
-    m_vector_size = bench_params.params[0].u_param;
+    assert(bench_params.count >= DotProductBenchmarkDescription::NumWorkloadParams);
 
-    m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(DotProductBenchmarkDescription::DefaultPolyModulusDegree,
+    m_vector_size = bench_params.params[DotProductBenchmarkDescription::Index_n].u_param;
+    if (m_vector_size <= 0)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Vector size must be greater than 0."),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+
+    m_p_ctx_wrapper        = SEALContextWrapper::createBFVContext(DotProductBenchmarkDescription::DefaultPolyModulusDegree,
                                                            DotProductBenchmarkDescription::DefaultMultiplicativeDepth,
                                                            DotProductBenchmarkDescription::DefaultCoeffModBits,
                                                            DotProductBenchmarkDescription::DefaultPlainModulusBits,
                                                            seal::sec_level_type::tc128);
+    std::size_t slot_count = m_p_ctx_wrapper->BFVEncoder()->slot_count();
+    if (m_vector_size > slot_count)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Vector size cannot be greater than " + std::to_string(slot_count) + "."),
+                                         HEBENCH_ECODE_INVALID_ARGS);
 }
 
 DotProductBenchmark::~DotProductBenchmark()
@@ -111,22 +123,11 @@ DotProductBenchmark::~DotProductBenchmark()
 
 hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge::PackedData *p_parameters)
 {
-    if (p_parameters->pack_count != 2)
+    if (p_parameters->pack_count != DotProductBenchmarkDescription::NumOpParams)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid number of parameters detected in parameter pack. Expected 2."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    // allocate our internal version of the encoded data
-
-    // We are using shared_ptr because we want to be able to copy the pointer object later
-    // and use the reference counter to avoid leaving dangling. If our internal object
-    // does not need to be copied, shared_ptr is not really needed.
-
-    std::shared_ptr<std::vector<std::vector<seal::Plaintext>>> p_params = std::make_shared<std::vector<std::vector<seal::Plaintext>>>();
-    if (!p_params)
-    {
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid memory allocation."), HEBENCH_ECODE_CRITICAL_ERROR);
-    }
-    std::vector<std::vector<seal::Plaintext>> &params = *p_params;
+    std::vector<std::vector<seal::Plaintext>> params;
 
     params.resize(p_parameters->pack_count);
     const unsigned int params_size = params.size();
@@ -154,26 +155,16 @@ hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge:
         }
     }
 
-    // Use EngineObject to encapsulate our internal object to cross the boundary of the API Bridge.
-    // EngineObject encapsulation ensures proper destruction from the C++ wrapper.
-    hebench::cpp::EngineObject *p_retval =
-        this->getEngine().template createEngineObj<std::shared_ptr<std::vector<std::vector<seal::Plaintext>>>>(p_params);
-
-    hebench::APIBridge::Handle retval;
-    retval.p    = p_retval;
-    retval.size = sizeof(hebench::cpp::EngineObject); // size is arbitrary and implementation dependent
-    retval.tag  = p_retval->classTag(); // make sure that the bit mask for EngineObject is part of the tag
-
-    return retval;
+    return this->getEngine().createHandle<decltype(params)>(sizeof(params),
+                                                            0,
+                                                            std::move(params));
 }
 
 void DotProductBenchmark::decode(hebench::APIBridge::Handle encoded_data, hebench::APIBridge::PackedData *p_native)
 {
     // retrieve our internal format object from the handle
-    hebench::cpp::EngineObject *p_obj =
-        reinterpret_cast<hebench::cpp::EngineObject *>(encoded_data.p);
-    std::vector<seal::Plaintext> &params =
-        *p_obj->get<std::shared_ptr<std::vector<seal::Plaintext>>>();
+    const std::vector<seal::Plaintext> &params =
+        this->getEngine().retrieveFromHandle<std::vector<seal::Plaintext>>(encoded_data);
 
     const size_t params_size = params.size();
     for (size_t result_i = 0; result_i < params_size; ++result_i)
@@ -187,23 +178,13 @@ void DotProductBenchmark::decode(hebench::APIBridge::Handle encoded_data, hebenc
 
 hebench::APIBridge::Handle DotProductBenchmark::encrypt(hebench::APIBridge::Handle encoded_data)
 {
-    if ((encoded_data.tag & hebench::cpp::EngineObject::tag) == 0)
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid tag detected. Expected EngineObject::tag."),
-                                         HEBENCH_ECODE_INVALID_ARGS);
-
-    // we only do plain text in this example, so, just return a copy
-
     // retrieve our internal format object from the handle
-    hebench::cpp::EngineObject *p_obj = reinterpret_cast<hebench::cpp::EngineObject *>(encoded_data.p);
-    std::shared_ptr<std::vector<std::vector<seal::Plaintext>>> p_encoded_data =
-        p_obj->get<std::shared_ptr<std::vector<std::vector<seal::Plaintext>>>>();
-
-    std::vector<std::vector<seal::Plaintext>> &encoded_data_ref = *p_encoded_data;
+    const std::vector<std::vector<seal::Plaintext>> &encoded_data_ref =
+        this->getEngine().retrieveFromHandle<std::vector<std::vector<seal::Plaintext>>>(encoded_data);
 
     std::vector<std::vector<seal::Ciphertext>> encrypted_data;
-
-    encrypted_data.resize(p_encoded_data->size());
-    for (unsigned int param_i = 0; param_i < p_encoded_data->size(); param_i++)
+    encrypted_data.resize(encoded_data_ref.size());
+    for (unsigned int param_i = 0; param_i < encoded_data_ref.size(); param_i++)
     {
         encrypted_data[param_i].resize(encoded_data_ref[param_i].size());
         for (unsigned int parameter_sample = 0; parameter_sample < encoded_data_ref[param_i].size(); parameter_sample++)
@@ -219,21 +200,11 @@ hebench::APIBridge::Handle DotProductBenchmark::encrypt(hebench::APIBridge::Hand
 
 hebench::APIBridge::Handle DotProductBenchmark::decrypt(hebench::APIBridge::Handle encrypted_data)
 {
-    if ((encrypted_data.tag & hebench::cpp::EngineObject::tag) == 0)
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid tag detected. Expected EngineObject::tag."),
-                                         HEBENCH_ECODE_INVALID_ARGS);
-
-    // we only do plain text in this example, so, just return a copy
-
     // retrieve our internal format object from the handle
-    std::vector<seal::Ciphertext> &encrypted_data_ref = this->getEngine().retrieveFromHandle<std::vector<seal::Ciphertext>>(encrypted_data);
+    std::vector<seal::Ciphertext> &encrypted_data_ref =
+        this->getEngine().retrieveFromHandle<std::vector<seal::Ciphertext>>(encrypted_data);
 
-    std::shared_ptr<std::vector<seal::Plaintext>> p_plaintext_data = std::make_shared<std::vector<seal::Plaintext>>();
-    if (!p_plaintext_data)
-    {
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid memory allocation."), HEBENCH_ECODE_CRITICAL_ERROR);
-    }
-    std::vector<seal::Plaintext> &plaintext_data = *p_plaintext_data;
+    std::vector<seal::Plaintext> plaintext_data;
     plaintext_data.resize(encrypted_data_ref.size());
 
     for (unsigned int res_count = 0; res_count < encrypted_data_ref.size(); ++res_count)
@@ -241,17 +212,9 @@ hebench::APIBridge::Handle DotProductBenchmark::decrypt(hebench::APIBridge::Hand
         plaintext_data[res_count] = m_p_ctx_wrapper->decrypt(encrypted_data_ref[res_count]);
     }
 
-    // copy the object and convert to external format
-    // (use EngineObject to send across the boundary of the API Bridge)
-    hebench::cpp::EngineObject *p_retval =
-        this->getEngine().template createEngineObj<std::shared_ptr<std::vector<seal::Plaintext>>>(p_plaintext_data);
-
-    hebench::APIBridge::Handle retval;
-    retval.p    = p_retval;
-    retval.size = sizeof(hebench::cpp::EngineObject); // size is arbitrary and implementation dependent
-    retval.tag  = p_retval->classTag(); // make sure that the bit mask for EngineObject is part of the tag
-
-    return retval;
+    return this->getEngine().createHandle<decltype(plaintext_data)>(sizeof(plaintext_data),
+                                                                    0,
+                                                                    std::move(plaintext_data));
 }
 
 hebench::APIBridge::Handle DotProductBenchmark::load(const hebench::APIBridge::Handle *p_local_data, uint64_t count)
@@ -283,33 +246,43 @@ void DotProductBenchmark::store(hebench::APIBridge::Handle remote_data,
 hebench::APIBridge::Handle DotProductBenchmark::operate(hebench::APIBridge::Handle h_remote_packed,
                                                         const hebench::APIBridge::ParameterIndexer *p_param_indexers)
 {
-    // This method should perform as fast as possible since it is the
-    // method benchmarked by Test Harness.
-
-    if ((h_remote_packed.tag & hebench::cpp::EngineObject::tag) == 0)
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid tag detected. Expected EngineObject::tag."),
-                                         HEBENCH_ECODE_INVALID_ARGS);
-
     // retrieve our internal format object from the handle
-    std::vector<std::vector<seal::Ciphertext>> &params =
+    const std::vector<std::vector<seal::Ciphertext>> &params =
         this->getEngine().retrieveFromHandle<std::vector<std::vector<seal::Ciphertext>>>(h_remote_packed);
 
     // create a new internal object for result
     std::vector<seal::Ciphertext> result;
     // perform the actual operation
     result.resize(p_param_indexers[0].batch_size * p_param_indexers[1].batch_size);
+    std::mutex mtx;
+    std::exception_ptr p_ex;
+#pragma omp parallel for collapse(2)
     for (uint64_t result_i = 0; result_i < p_param_indexers[0].batch_size; result_i++)
     {
         for (uint64_t result_x = 0; result_x < p_param_indexers[1].batch_size; result_x++)
         {
-            auto &result_cipher = result[result_i * p_param_indexers[1].batch_size + result_x];
-            m_p_ctx_wrapper->evaluator()->multiply(params[0][p_param_indexers[0].value_index + result_i],
-                                                   params[1][p_param_indexers[1].value_index + result_x],
-                                                   result_cipher);
-            m_p_ctx_wrapper->evaluator()->relinearize_inplace(result_cipher, m_p_ctx_wrapper->relinKeys());
-            result_cipher = m_p_ctx_wrapper->accumulateBFV(result_cipher, m_vector_size);
+            try
+            {
+                if (!p_ex)
+                {
+                    auto &result_cipher = result[result_i * p_param_indexers[1].batch_size + result_x];
+                    m_p_ctx_wrapper->evaluator()->multiply(params[0][p_param_indexers[0].value_index + result_i],
+                                                           params[1][p_param_indexers[1].value_index + result_x],
+                                                           result_cipher);
+                    m_p_ctx_wrapper->evaluator()->relinearize_inplace(result_cipher, m_p_ctx_wrapper->relinKeys());
+                    result_cipher = m_p_ctx_wrapper->accumulateBFV(result_cipher, m_vector_size);
+                } // end if
+            }
+            catch (...)
+            {
+                std::scoped_lock<std::mutex> lock(mtx);
+                if (!p_ex)
+                    p_ex = std::current_exception();
+            }
         }
     }
+    if (p_ex)
+        std::rethrow_exception(p_ex);
 
     return this->getEngine().createHandle<decltype(result)>(sizeof(result),
                                                             0,

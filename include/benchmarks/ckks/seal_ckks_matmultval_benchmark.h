@@ -15,7 +15,7 @@ namespace ckks {
 class MatMultValBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(MatMultValBenchmarkDescription)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::MatMultValBenchmarkDescription)
 
 public:
     static constexpr std::int64_t MatMultValOtherID = 0;
@@ -51,7 +51,7 @@ public:
 class MatMultValBenchmark : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(MatMultValBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::MatMultValBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x20 + MatMultValBenchmarkDescription::MatMultValOtherID;

@@ -14,27 +14,33 @@ class SEALEngine;
 namespace sbe {
 namespace ckks {
 
-enum ElementWiseOP
-{
-    ADD,
-    MULTIPLY
-};
-
 class ElementWiseBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(ElementWiseBenchmarkDescription)
-    static constexpr std::uint64_t NumWorkloadParams  = 1;
+    HEBERROR_DECLARE_CLASS_NAME(ckks::ElementWiseBenchmarkDescription)
     static constexpr const char *AlgorithmName        = "Vector";
     static constexpr const char *AlgorithmDescription = "One vector per ciphertext";
+    static constexpr std::size_t NumOpParams          = 2;
 
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 2;
-    static constexpr int DefaultScaleBits                   = 40;
+    static constexpr std::size_t DefaultCoeffMudulusBits    = 40;
+    static constexpr std::size_t DefaultScaleBits           = DefaultCoeffMudulusBits;
+
+    enum : std::uint64_t
+    {
+        Index_WParamsStart = 0,
+        Index_n            = Index_WParamsStart,
+        Index_ExtraWParamsStart,
+        Index_PolyModulusDegree = Index_ExtraWParamsStart,
+        Index_NumCoefficientModuli,
+        Index_CoefficientModulusBits,
+        Index_ScaleExponentBits,
+        NumWorkloadParams // This workload requires 1 parameters, and we add 4 encryption params
+    };
 
 public:
-    ElementWiseBenchmarkDescription() {}
-    ElementWiseBenchmarkDescription(hebench::APIBridge::Category category, ElementWiseOP op);
+    ElementWiseBenchmarkDescription(hebench::APIBridge::Category category, hebench::APIBridge::Workload op);
     ~ElementWiseBenchmarkDescription() override;
 
     hebench::cpp::BaseBenchmark *createBenchmark(hebench::cpp::BaseEngine &engine,
@@ -46,7 +52,7 @@ public:
 class ElementWiseBenchmark : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(ElementWiseBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::ElementWiseBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x1;
@@ -73,7 +79,6 @@ public:
 private:
     //SEALEngine *m_seal_engine;
     SEALContextWrapper::Ptr m_p_ctx_wrapper;
-    ElementWiseOP m_operation;
     unsigned int m_vector_size;
 };
 

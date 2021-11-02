@@ -22,7 +22,7 @@ namespace bfv {
 class MatMultCipherBatchAxisBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(MatMultCipherBatchAxisBenchmarkDescription)
+    HEBERROR_DECLARE_CLASS_NAME(bfv::MatMultCipherBatchAxisBenchmarkDescription)
     static constexpr std::uint64_t NumWorkloadParams  = 3;
     static constexpr std::uint64_t NumOpParams        = 2; // number of operation parameters
     static constexpr std::int64_t MatMultOtherID      = 0x01;
@@ -48,7 +48,7 @@ public:
 class MatMultCipherBatchAxisBenchmark final : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(MatMultCipherBatchAxisBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(bfv::MatMultCipherBatchAxisBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x1;

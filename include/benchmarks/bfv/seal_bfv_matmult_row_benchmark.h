@@ -20,7 +20,7 @@ namespace bfv {
 class MatMultRowBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(MatMultRowBenchmarkDescription)
+    HEBERROR_DECLARE_CLASS_NAME(bfv::MatMultRowBenchmarkDescription)
     static constexpr std::uint64_t NumWorkloadParams  = 3;
     static constexpr std::uint64_t NumOpParams        = 2; // number of operation parameters
     static constexpr std::int64_t MatMultOtherID      = 0x02;
@@ -46,7 +46,7 @@ public:
 class MatMultRowLatencyBenchmark final : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(MatMultRowBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(bfv::MatMultRowBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x1;

@@ -20,9 +20,7 @@ namespace ckks {
 class LogRegHornerBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(LogRegHornerBenchmarkDescription)
-
-    static constexpr std::uint64_t NumWorkloadParams  = 1;
+    HEBERROR_DECLARE_CLASS_NAME(ckks::LogRegHornerBenchmarkDescription)
     static constexpr std::uint64_t DefaultBatchSize   = 100;
     static constexpr std::int64_t LogRegOtherID       = 0x01;
     static constexpr const char *AlgorithmName        = "HornerPolyEval";
@@ -30,10 +28,17 @@ public:
 
     enum : std::uint64_t
     {
-        Index_W = 0,
+        Index_WParamsStart = 0,
+        Index_W            = Index_WParamsStart,
         Index_b,
         Index_X,
-        NumOpParams
+        NumOpParams,
+        Index_ExtraWParamsStart = NumOpParams,
+        Index_PolyModulusDegree = Index_ExtraWParamsStart,
+        Index_NumCoefficientModuli,
+        Index_CoefficientModulusBits,
+        Index_ScaleExponentBits,
+        NumWorkloadParams // This workload requires 1 parameters, and we add 4 encryption params
     };
 
     // encryption params
@@ -63,7 +68,7 @@ public:
 class LogRegHornerBenchmark : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(LogRegHornerBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::LogRegHornerBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x1;
