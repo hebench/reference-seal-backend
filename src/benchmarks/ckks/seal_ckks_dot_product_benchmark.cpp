@@ -34,8 +34,8 @@ DotProductBenchmarkDescription::DotProductBenchmarkDescription(hebench::APIBridg
         break;
 
     case hebench::APIBridge::Category::Offline:
-        m_descriptor.cat_params.offline.data_count[0] = 2;
-        m_descriptor.cat_params.offline.data_count[1] = 1;
+        m_descriptor.cat_params.offline.data_count[0] = 0;
+        m_descriptor.cat_params.offline.data_count[1] = 0;
         break;
 
     default:
@@ -53,7 +53,7 @@ DotProductBenchmarkDescription::DotProductBenchmarkDescription(hebench::APIBridg
     default_workload_params.n = 100;
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
-    default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultCoeffMudulusBits, "CoefficientMudulusBits");
+    default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultScaleBits, "ScaleBits");
     this->addDefaultParameters(default_workload_params);
 }
@@ -83,20 +83,19 @@ std::string DotProductBenchmarkDescription::getBenchmarkDescription(const hebenc
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid null workload parameters `p_w_params`"),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    const hebench::APIBridge::WorkloadParams &bench_params = *p_w_params;
-    std::uint64_t m_poly_modulus_degree                    = bench_params.params[DotProductBenchmarkDescription::Index_PolyModulusDegree].u_param;
-    std::uint64_t m_multiplicative_depth                   = bench_params.params[DotProductBenchmarkDescription::Index_NumCoefficientModuli].u_param;
-    std::uint64_t m_coeff_mudulus_bits                     = bench_params.params[DotProductBenchmarkDescription::Index_CoefficientModulusBits].u_param;
-    std::uint64_t m_scale_bits                             = bench_params.params[DotProductBenchmarkDescription::Index_ScaleExponentBits].u_param;
+    std::uint64_t poly_modulus_degree  = p_w_params->params[DotProductBenchmarkDescription::Index_PolyModulusDegree].u_param;
+    std::uint64_t multiplicative_depth = p_w_params->params[DotProductBenchmarkDescription::Index_NumCoefficientModuli].u_param;
+    std::uint64_t coeff_mudulus_bits   = p_w_params->params[DotProductBenchmarkDescription::Index_CoefficientModulusBits].u_param;
+    std::uint64_t scale_bits           = p_w_params->params[DotProductBenchmarkDescription::Index_ScaleExponentBits].u_param;
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
-       << ", , Poly modulus degree, " << m_poly_modulus_degree << std::endl
+       << ", , Poly modulus degree, " << poly_modulus_degree << std::endl
        << ", , Coefficient Modulus, 60";
-    for (std::size_t i = 1; i < m_multiplicative_depth; ++i)
-        ss << ", " << m_coeff_mudulus_bits;
+    for (std::size_t i = 1; i < multiplicative_depth; ++i)
+        ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
-       << ", , Scale, 2^" << m_scale_bits << std::endl
+       << ", , Scale, 2^" << scale_bits << std::endl
        << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription;
 
     return ss.str();
@@ -109,31 +108,31 @@ std::string DotProductBenchmarkDescription::getBenchmarkDescription(const hebenc
 DotProductBenchmark::DotProductBenchmark(hebench::cpp::BaseEngine &engine,
                                          const hebench::APIBridge::BenchmarkDescriptor &bench_desc,
                                          const hebench::APIBridge::WorkloadParams &bench_params) :
-    hebench::cpp::BaseBenchmark(engine, bench_desc, bench_params)
+    hebench::cpp::BaseBenchmark(engine, bench_desc, bench_params),
+    m_w_params(bench_params)
 {
     assert(bench_params.count >= DotProductBenchmarkDescription::NumWorkloadParams);
 
-    m_vector_size = bench_params.params[DotProductBenchmarkDescription::Index_n].u_param;
-    if (m_vector_size <= 0)
+    if (m_w_params.n <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Vector size must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    std::uint64_t m_poly_modulus_degree  = bench_params.params[DotProductBenchmarkDescription::Index_PolyModulusDegree].u_param;
-    std::uint64_t m_multiplicative_depth = bench_params.params[DotProductBenchmarkDescription::Index_NumCoefficientModuli].u_param;
-    std::uint64_t m_coeff_mudulus_bits   = bench_params.params[DotProductBenchmarkDescription::Index_CoefficientModulusBits].u_param;
-    std::uint64_t m_scale_bits           = bench_params.params[DotProductBenchmarkDescription::Index_ScaleExponentBits].u_param;
+    std::uint64_t poly_modulus_degree  = m_w_params.get<std::uint64_t>(DotProductBenchmarkDescription::Index_PolyModulusDegree);
+    std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(DotProductBenchmarkDescription::Index_NumCoefficientModuli);
+    std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(DotProductBenchmarkDescription::Index_CoefficientModulusBits);
+    std::uint64_t scale_bits           = m_w_params.get<std::uint64_t>(DotProductBenchmarkDescription::Index_ScaleExponentBits);
 
-    if (m_coeff_mudulus_bits < 1)
+    if (coeff_mudulus_bits < 1)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    m_p_ctx_wrapper        = SEALContextWrapper::createCKKSContext(m_poly_modulus_degree,
-                                                            m_multiplicative_depth,
-                                                            static_cast<int>(m_coeff_mudulus_bits),
-                                                            static_cast<int>(m_scale_bits),
+    m_p_ctx_wrapper        = SEALContextWrapper::createCKKSContext(poly_modulus_degree,
+                                                            multiplicative_depth,
+                                                            static_cast<int>(coeff_mudulus_bits),
+                                                            static_cast<int>(scale_bits),
                                                             seal::sec_level_type::tc128);
     std::size_t slot_count = m_p_ctx_wrapper->CKKSEncoder()->slot_count();
-    if (m_vector_size > slot_count)
+    if (m_w_params.n > slot_count)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Vector size cannot be greater than " + std::to_string(slot_count) + "."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 }
@@ -165,7 +164,7 @@ hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge:
     }
 
     std::vector<double> values;
-    values.resize(m_vector_size);
+    values.resize(m_w_params.n);
     for (unsigned int x = 0; x < params.size(); ++x)
     {
         for (unsigned int y = 0; y < params[x].size(); ++y)
@@ -175,7 +174,7 @@ hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge:
             const hebench::APIBridge::NativeDataBuffer &sample = parameter.p_buffers[y];
             // convert the native data to pointer to double as per specification of workload
             const double *p_row = reinterpret_cast<const double *>(sample.p);
-            for (unsigned int x = 0; x < m_vector_size; ++x)
+            for (unsigned int x = 0; x < m_w_params.n; ++x)
             {
                 values[x] = p_row[x];
             }
@@ -304,7 +303,7 @@ hebench::APIBridge::Handle DotProductBenchmark::operate(hebench::APIBridge::Hand
                                                            result_cipher,
                                                            seal::MemoryPoolHandle::ThreadLocal());
                     m_p_ctx_wrapper->evaluator()->relinearize_inplace(result_cipher, m_p_ctx_wrapper->relinKeys(), seal::MemoryPoolHandle::ThreadLocal());
-                    result_cipher = m_p_ctx_wrapper->accumulateCKKS(result_cipher, m_vector_size);
+                    result_cipher = m_p_ctx_wrapper->accumulateCKKS(result_cipher, m_w_params.n);
                 } // end if
             }
             catch (...)

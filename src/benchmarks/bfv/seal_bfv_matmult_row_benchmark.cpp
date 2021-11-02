@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <cstring>
+#include <memory>
+#include <mutex>
 #include <sstream>
-#include <string>
-#include <utility>
+#include <stdexcept>
+#include <vector>
 
 #include <omp.h>
 
@@ -34,13 +35,17 @@ MatMultRowBenchmarkDescription::MatMultRowBenchmarkDescription()
     m_descriptor.cipher_param_mask                          = HEBENCH_HE_PARAM_FLAGS_ALL_CIPHER;
     m_descriptor.scheme                                     = HEBENCH_HE_SCHEME_BFV;
     m_descriptor.security                                   = HEBENCH_HE_SECURITY_128;
-    m_descriptor.other                                      = MatMultOtherID;
+    m_descriptor.other                                      = MatMultRowOtherID;
 
     // specify default arguments for this workload flexible parameters:
     hebench::cpp::WorkloadParams::MatrixMultiply default_workload_params;
     default_workload_params.rows_M0 = 10;
     default_workload_params.cols_M0 = 9;
     default_workload_params.cols_M1 = 8;
+    default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
+    default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
+    default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
+    default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultPlainModulusBits, "PlainModulusBits");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -56,18 +61,8 @@ hebench::cpp::BaseBenchmark *MatMultRowBenchmarkDescription::createBenchmark(heb
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid empty workload parameters. Matrix Multiplication requires parameters."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    if ((m_descriptor.cipher_param_mask & 0x03) == 0x03) // all cipher
-    {
-        SEALEngine &seal_engine = dynamic_cast<SEALEngine &>(engine);
-        return new MatMultRowLatencyBenchmark(seal_engine,
-                                              m_descriptor,
-                                              *p_params);
-    }
-    else
-    {
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Cipher/plain combination of operation parameters requested is not supported."),
-                                         HEBENCH_ECODE_INVALID_ARGS);
-    } // end else
+    SEALEngine &seal_engine = dynamic_cast<SEALEngine &>(engine);
+    return new MatMultRowLatencyBenchmark(seal_engine, m_descriptor, *p_params);
 }
 
 void MatMultRowBenchmarkDescription::destroyBenchmark(hebench::cpp::BaseBenchmark *p_bench)
@@ -80,16 +75,29 @@ std::string MatMultRowBenchmarkDescription::getBenchmarkDescription(const hebenc
 {
     std::stringstream ss;
     std::string s_tmp = BenchmarkDescription::getBenchmarkDescription(p_w_params);
+
+    if (!p_w_params)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid null workload parameters `p_w_params`"),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+
+    assert(p_w_params->count >= MatMultRowBenchmarkDescription::NumWorkloadParams);
+
+    std::uint64_t poly_modulus_degree  = p_w_params->params[MatMultRowBenchmarkDescription::Index_PolyModulusDegree].u_param;
+    std::uint64_t multiplicative_depth = p_w_params->params[MatMultRowBenchmarkDescription::Index_NumCoefficientModuli].u_param;
+    std::uint64_t coeff_mudulus_bits   = p_w_params->params[MatMultRowBenchmarkDescription::Index_CoefficientModulusBits].u_param;
+    std::uint64_t plain_modulus_bits   = p_w_params->params[MatMultRowBenchmarkDescription::Index_PlainModulusBits].u_param;
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
-       << ", , Poly modulus degree, " << DefaultPolyModulusDegree << std::endl
+       << ", , Poly modulus degree, " << poly_modulus_degree << std::endl
        << ", , Coefficient Modulus, 60";
-    for (std::size_t i = 1; i < DefaultMultiplicativeDepth; ++i)
-        ss << ", " << DefaultCoeffMudulusBits;
+    for (std::size_t i = 1; i < multiplicative_depth; ++i)
+        ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
-       << ", , Plain Modulus, " << DefaultPlainModulus << std::endl
+       << ", , Plain Modulus, " << plain_modulus_bits << std::endl
        << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl;
+    return ss.str();
+
     return ss.str();
 }
 
@@ -109,15 +117,26 @@ MatMultRowLatencyBenchmark::MatMultRowLatencyBenchmark(hebench::cpp::BaseEngine 
         || ((bench_desc.cipher_param_mask & 0x03) != 0x03)
         || bench_desc.scheme != HEBENCH_HE_SCHEME_BFV
         || bench_desc.security != HEBENCH_HE_SECURITY_128
-        || bench_desc.other != MatMultRowBenchmarkDescription::MatMultOtherID)
+        || bench_desc.other != MatMultRowBenchmarkDescription::MatMultRowOtherID)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Benchmark descriptor received is not supported."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    // initialize seal context
-    m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(MatMultRowBenchmarkDescription::DefaultPolyModulusDegree,
-                                                           MatMultRowBenchmarkDescription::DefaultMultiplicativeDepth,
-                                                           MatMultRowBenchmarkDescription::DefaultCoeffMudulusBits,
-                                                           MatMultRowBenchmarkDescription::DefaultPlainModulus,
+    std::uint64_t poly_modulus_degree  = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_PolyModulusDegree);
+    std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_NumCoefficientModuli);
+    std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_CoefficientModulusBits);
+    std::uint64_t plain_modulus_bits   = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_PlainModulusBits);
+
+    if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+    if (coeff_mudulus_bits < 1)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+
+    m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(poly_modulus_degree,
+                                                           multiplicative_depth,
+                                                           static_cast<int>(coeff_mudulus_bits),
+                                                           static_cast<int>(plain_modulus_bits),
                                                            seal::sec_level_type::tc128);
 }
 

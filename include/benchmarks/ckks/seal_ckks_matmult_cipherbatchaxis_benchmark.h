@@ -13,8 +13,6 @@
 
 #include "engine/seal_context.h"
 
-class SEALEngine;
-
 namespace sbe {
 namespace ckks {
 
@@ -22,7 +20,7 @@ class MatMultCipherBatchAxisBenchmarkDescription : public hebench::cpp::Benchmar
 {
 public:
     HEBERROR_DECLARE_CLASS_NAME(ckks::MatMultCipherBatchAxisBenchmarkDescription)
-    static constexpr std::uint64_t NumWorkloadParams  = 3;
+public:
     static constexpr std::uint64_t NumOpParams        = 2; // number of operation parameters
     static constexpr std::int64_t MatMultOtherID      = 0x01;
     static constexpr const char *AlgorithmName        = "CipherBatchAxis";
@@ -32,7 +30,21 @@ public:
     static constexpr size_t DefaultPolyModulusDegree        = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 3;
     static constexpr std::size_t DefaultScaleBits           = 40; // 2^40
-    static constexpr std::size_t DefaultCoeffMudulusBits    = DefaultScaleBits;
+    static constexpr std::size_t DefaultCoeffModulusBits    = DefaultScaleBits;
+
+    enum : std::uint64_t
+    {
+        Index_WParamsStart = 0,
+        Index_rows_M0      = Index_WParamsStart,
+        Index_cols_M0,
+        Index_cols_M1,
+        Index_ExtraWParamsStart,
+        Index_PolyModulusDegree = Index_ExtraWParamsStart,
+        Index_NumCoefficientModuli,
+        Index_CoefficientModulusBits,
+        Index_ScaleExponentBits,
+        NumWorkloadParams // This workload requires 3 parameters, and we add 4 encryption params
+    };
 
 public:
     MatMultCipherBatchAxisBenchmarkDescription();

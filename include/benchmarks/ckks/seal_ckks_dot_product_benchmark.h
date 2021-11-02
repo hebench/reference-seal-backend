@@ -22,8 +22,8 @@ public:
 
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 2;
-    static constexpr std::size_t DefaultCoeffMudulusBits    = 40;
-    static constexpr std::size_t DefaultScaleBits           = DefaultCoeffMudulusBits;
+    static constexpr std::size_t DefaultCoeffModulusBits    = 40;
+    static constexpr std::size_t DefaultScaleBits           = DefaultCoeffModulusBits;
 
     enum : std::uint64_t
     {
@@ -76,7 +76,7 @@ public:
 
 private:
     SEALContextWrapper::Ptr m_p_ctx_wrapper;
-    unsigned int m_vector_size;
+    hebench::cpp::WorkloadParams::DotProduct m_w_params;
 };
 } // namespace ckks
 } // namespace sbe

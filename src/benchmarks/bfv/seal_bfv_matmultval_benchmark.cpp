@@ -41,6 +41,10 @@ MatMultValBenchmarkDescription::MatMultValBenchmarkDescription()
     default_workload_params.rows_M0 = 10;
     default_workload_params.cols_M0 = 9;
     default_workload_params.cols_M1 = 8;
+    default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
+    default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
+    default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
+    default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultPlainModulusBits, "PlainModulusBits");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -56,17 +60,9 @@ hebench::cpp::BaseBenchmark *MatMultValBenchmarkDescription::createBenchmark(heb
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid empty workload parameters. Matrix Multiplication requires parameters."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    if ((m_descriptor.cipher_param_mask & 0x03) == 0x03) // all cipher
-    {
-        return new MatMultValBenchmark(engine,
-                                       m_descriptor,
-                                       *p_params);
-    }
-    else
-    {
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Cipher/plain combination of operation parameters requested is not supported."),
-                                         HEBENCH_ECODE_INVALID_ARGS);
-    } // end else
+    return new MatMultValBenchmark(engine,
+                                   m_descriptor,
+                                   *p_params);
 }
 
 void MatMultValBenchmarkDescription::destroyBenchmark(hebench::cpp::BaseBenchmark *p_bench)
@@ -79,16 +75,29 @@ std::string MatMultValBenchmarkDescription::getBenchmarkDescription(const hebenc
 {
     std::stringstream ss;
     std::string s_tmp = BenchmarkDescription::getBenchmarkDescription(p_w_params);
+
+    if (!p_w_params)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid null workload parameters `p_w_params`"),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+
+    assert(p_w_params->count >= MatMultValBenchmarkDescription::NumWorkloadParams);
+
+    std::uint64_t poly_modulus_degree  = p_w_params->params[MatMultValBenchmarkDescription::Index_PolyModulusDegree].u_param;
+    std::uint64_t multiplicative_depth = p_w_params->params[MatMultValBenchmarkDescription::Index_NumCoefficientModuli].u_param;
+    std::uint64_t coeff_mudulus_bits   = p_w_params->params[MatMultValBenchmarkDescription::Index_CoefficientModulusBits].u_param;
+    std::uint64_t plain_modulus_bits   = p_w_params->params[MatMultValBenchmarkDescription::Index_PlainModulusBits].u_param;
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
-       << ", , Poly modulus degree, " << DefaultPolyModulusDegree << std::endl
+       << ", , Poly modulus degree, " << poly_modulus_degree << std::endl
        << ", , Coefficient Modulus, 60";
-    for (std::size_t i = 1; i < DefaultMultiplicativeDepth; ++i)
-        ss << ", " << DefaultCoeffMudulusBits;
+    for (std::size_t i = 1; i < multiplicative_depth; ++i)
+        ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
-       << ", , Plain Modulus, " << DefaultPlainModulus << std::endl
+       << ", , Plain Modulus, " << plain_modulus_bits << std::endl
        << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl;
+    return ss.str();
+
     return ss.str();
 }
 
@@ -102,9 +111,7 @@ MatMultValBenchmark::MatMultValBenchmark(hebench::cpp::BaseEngine &engine,
     hebench::cpp::BaseBenchmark(engine, bench_desc, bench_params),
     m_w_params(bench_params)
 {
-    // validate workload parameters
-
-    std::size_t pmd = MatMultValBenchmarkDescription::DefaultPolyModulusDegree;
+    assert(bench_params.count >= MatMultValBenchmarkDescription::NumWorkloadParams);
 
     if (bench_desc.workload != hebench::APIBridge::Workload::MatrixMultiply
         || bench_desc.data_type != hebench::APIBridge::DataType::Int64
@@ -116,31 +123,35 @@ MatMultValBenchmark::MatMultValBenchmark(hebench::cpp::BaseEngine &engine,
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Benchmark descriptor received is not supported."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    // number of workload parameters (3 for matmult; +3 encryption params)
-    if (bench_params.count < MatMultValBenchmarkDescription::NumWorkloadParams)
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid workload parameters. This workload requires " + std::to_string(MatMultValBenchmarkDescription::NumWorkloadParams) + " parameters."),
-                                         HEBENCH_ECODE_INVALID_ARGS);
+    // validate workload parameters
+    std::uint64_t poly_modulus_degree  = m_w_params.get<std::uint64_t>(MatMultValBenchmarkDescription::Index_PolyModulusDegree);
+    std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(MatMultValBenchmarkDescription::Index_NumCoefficientModuli);
+    std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(MatMultValBenchmarkDescription::Index_CoefficientModulusBits);
+    std::uint64_t plain_modulus_bits   = m_w_params.get<std::uint64_t>(MatMultValBenchmarkDescription::Index_PlainModulusBits);
 
     // check values of the workload parameters and make sure they are supported by benchmark:
 
     if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
-    if (m_w_params.cols_M0 - 1 > pmd)
+    if (m_w_params.cols_M0 - 1 > poly_modulus_degree)
     {
         std::stringstream ss;
         ss << "Invalid workload parameters. This workload only supports matrices of dimensions (n x "
-           << pmd << ") x (" << pmd << " x m).";
+           << poly_modulus_degree << ") x (" << poly_modulus_degree << " x m).";
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS(ss.str()),
                                          HEBENCH_ECODE_INVALID_ARGS);
     } // end if
+    if (coeff_mudulus_bits < 1)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
+                                         HEBENCH_ECODE_INVALID_ARGS);
 
-    m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(MatMultValBenchmarkDescription::DefaultPolyModulusDegree,
-                                                           MatMultValBenchmarkDescription::DefaultMultiplicativeDepth,
-                                                           MatMultValBenchmarkDescription::DefaultCoeffMudulusBits,
-                                                           MatMultValBenchmarkDescription::DefaultPlainModulus,
+    m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(poly_modulus_degree,
+                                                           multiplicative_depth,
+                                                           static_cast<int>(coeff_mudulus_bits),
+                                                           static_cast<int>(plain_modulus_bits),
                                                            seal::sec_level_type::tc128);
-    assert(m_p_ctx_wrapper->BFVEncoder()->slot_count() == pmd);
+    assert(m_p_ctx_wrapper->BFVEncoder()->slot_count() == poly_modulus_degree);
 }
 
 MatMultValBenchmark::~MatMultValBenchmark()
