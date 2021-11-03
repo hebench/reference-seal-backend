@@ -113,7 +113,7 @@ void SEALContextWrapper::initBFV(std::size_t poly_modulus_degree, std::size_t nu
         m_scheme = seal::scheme_type::bfv;
         seal::EncryptionParameters parameters(seal::scheme_type::bfv);
         parameters.set_poly_modulus_degree(poly_modulus_degree);
-        parameters.set_coeff_modulus(seal::CoeffModulus::BFVDefault(poly_modulus_degree));
+        parameters.set_coeff_modulus(seal::CoeffModulus::Create(poly_modulus_degree, coeff_modulus));
         parameters.set_plain_modulus(seal::PlainModulus::Batching(poly_modulus_degree, plaintext_modulus_bits));
         m_context = std::make_shared<seal::SEALContext>(parameters, true, sec_level);
 

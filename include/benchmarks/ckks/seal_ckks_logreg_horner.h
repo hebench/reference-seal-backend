@@ -20,28 +20,41 @@ namespace ckks {
 class LogRegHornerBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(LogRegHornerBenchmarkDescription)
-
-    static constexpr std::uint64_t NumWorkloadParams  = 1;
+    HEBERROR_DECLARE_CLASS_NAME(ckks::LogRegHornerBenchmarkDescription)
     static constexpr std::uint64_t DefaultBatchSize   = 100;
     static constexpr std::int64_t LogRegOtherID       = 0x01;
     static constexpr const char *AlgorithmName        = "HornerPolyEval";
     static constexpr const char *AlgorithmDescription = "Horner method for polynomial evaluation, single input vector per ciphertext";
 
+    // Operation parameter indices
     enum : std::uint64_t
     {
-        Index_W = 0,
+        Index_OpParamsStart = 0,
+        Index_W             = Index_OpParamsStart,
         Index_b,
         Index_X,
         NumOpParams
     };
 
+    // Workload parameter indices
+    enum : std::uint64_t
+    {
+        Index_WParamsStart = 0,
+        Index_n            = Index_WParamsStart,
+        Index_ExtraWParamsStart,
+        Index_PolyModulusDegree = Index_ExtraWParamsStart,
+        Index_NumCoefficientModuli,
+        Index_CoefficientModulusBits,
+        Index_ScaleExponentBits,
+        NumWorkloadParams // This workload requires 1 parameters, and we add 4 encryption params
+    };
+
     // encryption params
     static constexpr size_t DefaultPolyModulusDegree = 16384;
     //static constexpr const int coeff_modulus[] = { 60, 45, 45, 45, 45, 45, 60 };
-    static constexpr std::size_t DefaultCoeffMudulusBits    = 45;
+    static constexpr std::size_t DefaultCoeffModulusBits    = 45;
     static constexpr std::size_t DefaultMultiplicativeDepth = 6;
-    static constexpr std::size_t DefaultScaleBits           = DefaultCoeffMudulusBits; // 2^45
+    static constexpr std::size_t DefaultScaleBits           = DefaultCoeffModulusBits; // 2^45
 
 public:
     LogRegHornerBenchmarkDescription(hebench::APIBridge::Category category, std::size_t batch_size = 0);
@@ -63,7 +76,7 @@ public:
 class LogRegHornerBenchmark : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(LogRegHornerBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::LogRegHornerBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x1;

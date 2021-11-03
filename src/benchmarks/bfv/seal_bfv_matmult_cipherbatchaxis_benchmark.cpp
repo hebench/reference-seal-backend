@@ -3,9 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <cassert>
 #include <cstring>
+#include <memory>
+#include <mutex>
 #include <sstream>
-#include <string>
+#include <stdexcept>
+#include <vector>
 
 #include "benchmarks/bfv/seal_bfv_matmult_cipherbatchaxis_benchmark.h"
 #include "engine/seal_engine.h"
@@ -36,6 +40,10 @@ MatMultCipherBatchAxisBenchmarkDescription::MatMultCipherBatchAxisBenchmarkDescr
     default_workload_params.rows_M0 = 10;
     default_workload_params.cols_M0 = 9;
     default_workload_params.cols_M1 = 8;
+    default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
+    default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
+    default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
+    default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultPlainModulusBits, "PlainModulusBits");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -75,16 +83,29 @@ std::string MatMultCipherBatchAxisBenchmarkDescription::getBenchmarkDescription(
 {
     std::stringstream ss;
     std::string s_tmp = BenchmarkDescription::getBenchmarkDescription(p_w_params);
+
+    if (!p_w_params)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid null workload parameters `p_w_params`"),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+
+    assert(p_w_params->count >= MatMultCipherBatchAxisBenchmarkDescription::NumWorkloadParams);
+
+    std::uint64_t poly_modulus_degree  = p_w_params->params[MatMultCipherBatchAxisBenchmarkDescription::Index_PolyModulusDegree].u_param;
+    std::uint64_t multiplicative_depth = p_w_params->params[MatMultCipherBatchAxisBenchmarkDescription::Index_NumCoefficientModuli].u_param;
+    std::uint64_t coeff_mudulus_bits   = p_w_params->params[MatMultCipherBatchAxisBenchmarkDescription::Index_CoefficientModulusBits].u_param;
+    std::uint64_t plain_modulus_bits   = p_w_params->params[MatMultCipherBatchAxisBenchmarkDescription::Index_PlainModulusBits].u_param;
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
-       << ", , Poly modulus degree, " << DefaultPolyModulusDegree << std::endl
+       << ", , Poly modulus degree, " << poly_modulus_degree << std::endl
        << ", , Coefficient Modulus, 60";
-    for (std::size_t i = 1; i < DefaultMultiplicativeDepth; ++i)
-        ss << ", " << DefaultCoeffMudulusBits;
+    for (std::size_t i = 1; i < multiplicative_depth; ++i)
+        ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
-       << ", , Plain Modulus, " << DefaultPlainModulus << std::endl
+       << ", , Plain Modulus, " << plain_modulus_bits << std::endl
        << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl;
+    return ss.str();
+
     return ss.str();
 }
 
@@ -108,11 +129,22 @@ MatMultCipherBatchAxisBenchmark::MatMultCipherBatchAxisBenchmark(hebench::cpp::B
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Benchmark descriptor received is not supported."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    // initialize seal context
-    m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(MatMultCipherBatchAxisBenchmarkDescription::DefaultPolyModulusDegree,
-                                                           MatMultCipherBatchAxisBenchmarkDescription::DefaultMultiplicativeDepth,
-                                                           MatMultCipherBatchAxisBenchmarkDescription::DefaultCoeffMudulusBits,
-                                                           MatMultCipherBatchAxisBenchmarkDescription::DefaultPlainModulus,
+    std::uint64_t poly_modulus_degree  = m_w_params.get<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::Index_PolyModulusDegree);
+    std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::Index_NumCoefficientModuli);
+    std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::Index_CoefficientModulusBits);
+    std::uint64_t plain_modulus_bits   = m_w_params.get<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::Index_PlainModulusBits);
+
+    if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+    if (coeff_mudulus_bits < 1)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+
+    m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(poly_modulus_degree,
+                                                           multiplicative_depth,
+                                                           static_cast<int>(coeff_mudulus_bits),
+                                                           static_cast<int>(plain_modulus_bits),
                                                            seal::sec_level_type::tc128);
 }
 
@@ -291,10 +323,14 @@ void MatMultCipherBatchAxisBenchmark::store(hebench::APIBridge::Handle h_remote_
                                             std::uint64_t count)
 {
     // remote host is same as local host, so, just copy the data
-    // (shared_ptr ensures data is shallow copied and properly destroyed when needed)
-
+    assert(count == 0 || p_h_local_data);
     if (count > 0)
     {
+        // pad with zeros any excess local handles as per specifications
+        std::memset(p_h_local_data, 0, sizeof(hebench::APIBridge::Handle) * count);
+
+        // since remote and host are the same, we just need to return a copy
+        // of the remote as local data.
         p_h_local_data[0] = this->getEngine().duplicateHandle(h_remote_data);
     } // end if
 }
@@ -325,32 +361,48 @@ hebench::APIBridge::Handle MatMultCipherBatchAxisBenchmark::operate(hebench::API
     retval.emplace_back(m0.rows(), m1.cols());
     OpParamSampleCipher &m = retval.back();
 
+    std::mutex mtx;
+    std::exception_ptr p_ex;
 #pragma omp parallel for collapse(2)
     for (size_t out_ind0 = 0; out_ind0 < m0.rows(); ++out_ind0)
     {
         for (size_t out_ind1 = 0; out_ind1 < m1.cols(); ++out_ind1)
         {
-            seal::Ciphertext &out = m.at(out_ind0, out_ind1);
-            for (size_t inner_dim = 0; inner_dim < m0.cols(); inner_dim++)
+            try
             {
-                const seal::Ciphertext &arg1 = m0.at(out_ind0, inner_dim);
-                const seal::Ciphertext &arg2 = m1.at(inner_dim, out_ind1);
+                if (!p_ex)
+                {
+                    seal::Ciphertext &out = m.at(out_ind0, out_ind1);
+                    for (size_t inner_dim = 0; inner_dim < m0.cols(); inner_dim++)
+                    {
+                        const seal::Ciphertext &arg1 = m0.at(out_ind0, inner_dim);
+                        const seal::Ciphertext &arg2 = m1.at(inner_dim, out_ind1);
 
-                if (inner_dim == 0)
-                {
-                    m_p_ctx_wrapper->evaluator()->multiply(arg1, arg2, out);
-                    m_p_ctx_wrapper->evaluator()->relinearize_inplace(out, m_p_ctx_wrapper->relinKeys());
-                }
-                else
-                {
-                    seal::Ciphertext tmp;
-                    m_p_ctx_wrapper->evaluator()->multiply(arg1, arg2, tmp);
-                    m_p_ctx_wrapper->evaluator()->relinearize_inplace(tmp, m_p_ctx_wrapper->relinKeys());
-                    m_p_ctx_wrapper->evaluator()->add_inplace(out, tmp);
-                }
+                        if (inner_dim == 0)
+                        {
+                            m_p_ctx_wrapper->evaluator()->multiply(arg1, arg2, out);
+                            m_p_ctx_wrapper->evaluator()->relinearize_inplace(out, m_p_ctx_wrapper->relinKeys());
+                        }
+                        else
+                        {
+                            seal::Ciphertext tmp;
+                            m_p_ctx_wrapper->evaluator()->multiply(arg1, arg2, tmp);
+                            m_p_ctx_wrapper->evaluator()->relinearize_inplace(tmp, m_p_ctx_wrapper->relinKeys());
+                            m_p_ctx_wrapper->evaluator()->add_inplace(out, tmp);
+                        }
+                    }
+                } // end if
+            }
+            catch (...)
+            {
+                std::scoped_lock<std::mutex> lock(mtx);
+                if (!p_ex)
+                    p_ex = std::current_exception();
             }
         }
     }
+    if (p_ex)
+        std::rethrow_exception(p_ex);
 
     return this->getEngine().createHandle<decltype(retval)>(sizeof(retval),
                                                             0,
