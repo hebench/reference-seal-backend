@@ -17,6 +17,7 @@
 #include "benchmarks/ckks/seal_ckks_element_wise_benchmark.h"
 #include "benchmarks/ckks/seal_ckks_logreg_horner.h"
 #include "benchmarks/ckks/seal_ckks_matmult_cipherbatchaxis_benchmark.h"
+#include "benchmarks/ckks/seal_ckks_matmult_row_benchmark.h"
 #include "benchmarks/ckks/seal_ckks_matmultval_benchmark.h"
 
 #include "benchmarks/bfv/seal_bfv_dot_product_benchmark.h"
@@ -95,42 +96,47 @@ void SEALEngine::init()
 
     // add the all benchmark descriptors
     addBenchmarkDescription(
-        std::make_shared<sbe::ckks::LogRegHornerBenchmarkDescription>(hebench::APIBridge::Category::Latency));
-    addBenchmarkDescription(
-        std::make_shared<sbe::ckks::LogRegHornerBenchmarkDescription>(hebench::APIBridge::Category::Offline, 20));
-    addBenchmarkDescription(
-        std::make_shared<sbe::ckks::DotProductBenchmarkDescription>(hebench::APIBridge::Category::Latency));
-    addBenchmarkDescription(
-        std::make_shared<sbe::ckks::DotProductBenchmarkDescription>(hebench::APIBridge::Category::Offline));
+        std::make_shared<sbe::bfv::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Latency, hebench::APIBridge::Workload::EltwiseAdd));
     addBenchmarkDescription(
         std::make_shared<sbe::ckks::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Latency, hebench::APIBridge::Workload::EltwiseAdd));
     addBenchmarkDescription(
+        std::make_shared<sbe::bfv::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Offline, hebench::APIBridge::Workload::EltwiseAdd));
+    addBenchmarkDescription(
         std::make_shared<sbe::ckks::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Offline, hebench::APIBridge::Workload::EltwiseAdd));
+
+    addBenchmarkDescription(
+        std::make_shared<sbe::bfv::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Latency, hebench::APIBridge::Workload::EltwiseMultiply));
     addBenchmarkDescription(
         std::make_shared<sbe::ckks::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Latency, hebench::APIBridge::Workload::EltwiseMultiply));
     addBenchmarkDescription(
+        std::make_shared<sbe::bfv::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Offline, hebench::APIBridge::Workload::EltwiseMultiply));
+    addBenchmarkDescription(
         std::make_shared<sbe::ckks::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Offline, hebench::APIBridge::Workload::EltwiseMultiply));
-    addBenchmarkDescription(
-        std::make_shared<sbe::ckks::MatMultCipherBatchAxisBenchmarkDescription>());
-    addBenchmarkDescription(
-        std::make_shared<sbe::ckks::MatMultValBenchmarkDescription>());
 
     addBenchmarkDescription(
         std::make_shared<sbe::bfv::DotProductBenchmarkDescription>(hebench::APIBridge::Category::Latency));
     addBenchmarkDescription(
+        std::make_shared<sbe::ckks::DotProductBenchmarkDescription>(hebench::APIBridge::Category::Latency));
+    addBenchmarkDescription(
         std::make_shared<sbe::bfv::DotProductBenchmarkDescription>(hebench::APIBridge::Category::Offline));
     addBenchmarkDescription(
-        std::make_shared<sbe::bfv::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Latency, hebench::APIBridge::Workload::EltwiseAdd));
-    addBenchmarkDescription(
-        std::make_shared<sbe::bfv::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Offline, hebench::APIBridge::Workload::EltwiseAdd));
-    addBenchmarkDescription(
-        std::make_shared<sbe::bfv::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Latency, hebench::APIBridge::Workload::EltwiseMultiply));
-    addBenchmarkDescription(
-        std::make_shared<sbe::bfv::ElementWiseBenchmarkDescription>(hebench::APIBridge::Category::Offline, hebench::APIBridge::Workload::EltwiseMultiply));
+        std::make_shared<sbe::ckks::DotProductBenchmarkDescription>(hebench::APIBridge::Category::Offline));
+
     addBenchmarkDescription(
         std::make_shared<sbe::bfv::MatMultCipherBatchAxisBenchmarkDescription>());
     addBenchmarkDescription(
-        std::make_shared<sbe::bfv::MatMultRowBenchmarkDescription>());
+        std::make_shared<sbe::ckks::MatMultCipherBatchAxisBenchmarkDescription>());
     addBenchmarkDescription(
         std::make_shared<sbe::bfv::MatMultValBenchmarkDescription>());
+    addBenchmarkDescription(
+        std::make_shared<sbe::ckks::MatMultValBenchmarkDescription>());
+    addBenchmarkDescription(
+        std::make_shared<sbe::bfv::MatMultRowBenchmarkDescription>());
+    addBenchmarkDescription(
+        std::make_shared<sbe::ckks::MatMultRowBenchmarkDescription>());
+
+    addBenchmarkDescription(
+        std::make_shared<sbe::ckks::LogRegHornerBenchmarkDescription>(hebench::APIBridge::Category::Latency));
+    addBenchmarkDescription(
+        std::make_shared<sbe::ckks::LogRegHornerBenchmarkDescription>(hebench::APIBridge::Category::Offline, 20));
 }
