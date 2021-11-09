@@ -5,8 +5,10 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
-#include <iostream>
 #include <memory>
+#include <mutex>
+#include <sstream>
+#include <stdexcept>
 #include <vector>
 
 #include "benchmarks/ckks/seal_ckks_logreg_horner.h"
@@ -54,6 +56,10 @@ LogRegHornerBenchmarkDescription::LogRegHornerBenchmarkDescription(hebench::APIB
 
     hebench::cpp::WorkloadParams::LogisticRegression default_workload_params;
     default_workload_params.n = 16;
+    default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
+    default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
+    default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
+    default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultScaleBits, "ScaleBits");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -78,15 +84,24 @@ std::string LogRegHornerBenchmarkDescription::getBenchmarkDescription(const hebe
 {
     std::stringstream ss;
     std::string s_tmp = BenchmarkDescription::getBenchmarkDescription(p_w_params);
+
+    if (!p_w_params)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid null workload parameters `p_w_params`"),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+
+    std::uint64_t m_poly_modulus_degree  = p_w_params->params[LogRegHornerBenchmarkDescription::Index_PolyModulusDegree].u_param;
+    std::uint64_t m_multiplicative_depth = p_w_params->params[LogRegHornerBenchmarkDescription::Index_NumCoefficientModuli].u_param;
+    std::uint64_t m_coeff_mudulus_bits   = p_w_params->params[LogRegHornerBenchmarkDescription::Index_CoefficientModulusBits].u_param;
+    std::uint64_t m_scale_bits           = p_w_params->params[LogRegHornerBenchmarkDescription::Index_ScaleExponentBits].u_param;
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
-       << ", , Poly modulus degree, " << DefaultPolyModulusDegree << std::endl
+       << ", , Poly modulus degree, " << m_poly_modulus_degree << std::endl
        << ", , Coefficient Modulus, 60";
-    for (std::size_t i = 1; i < DefaultMultiplicativeDepth; ++i)
-        ss << ", " << DefaultCoeffMudulusBits;
+    for (std::size_t i = 1; i < m_multiplicative_depth; ++i)
+        ss << ", " << m_coeff_mudulus_bits;
     ss << ", 60" << std::endl
-       << ", , Scale, 2^" << DefaultScaleBits << std::endl
+       << ", , Scale, 2^" << m_scale_bits << std::endl
        << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription;
 
     return ss.str();
@@ -120,10 +135,18 @@ LogRegHornerBenchmark::LogRegHornerBenchmark(hebench::cpp::BaseEngine &engine,
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Benchmark descriptor received is not supported."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    m_p_ctx_wrapper = SEALContextWrapper::createCKKSContext(LogRegHornerBenchmarkDescription::DefaultPolyModulusDegree,
-                                                            LogRegHornerBenchmarkDescription::DefaultMultiplicativeDepth,
-                                                            LogRegHornerBenchmarkDescription::DefaultCoeffMudulusBits,
-                                                            LogRegHornerBenchmarkDescription::DefaultScaleBits,
+    std::uint64_t m_poly_modulus_degree  = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_PolyModulusDegree);
+    std::uint64_t m_multiplicative_depth = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_NumCoefficientModuli);
+    std::uint64_t m_coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_CoefficientModulusBits);
+    std::uint64_t m_scale_bits           = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_ScaleExponentBits);
+    if (m_coeff_mudulus_bits < 1)
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+
+    m_p_ctx_wrapper = SEALContextWrapper::createCKKSContext(m_poly_modulus_degree,
+                                                            m_multiplicative_depth,
+                                                            static_cast<int>(m_coeff_mudulus_bits),
+                                                            static_cast<int>(m_scale_bits),
                                                             seal::sec_level_type::tc128);
     if (m_w_params.n > m_p_ctx_wrapper->CKKSEncoder()->slot_count())
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid workload parameter 'n'. Number of features must be under " + std::to_string(m_p_ctx_wrapper->CKKSEncoder()->slot_count()) + "."),
@@ -294,13 +317,8 @@ hebench::APIBridge::Handle LogRegHornerBenchmark::encrypt(hebench::APIBridge::Ha
 
     const EncodedOpParams &encoded_params =
         this->getEngine().retrieveFromHandle<EncodedOpParams>(h_encoded_data, EncodedOpParamsTag);
-    // use smart ptr to be able to copy during load phase
-    //    std::shared_ptr<EncryptedOpParams> p_retval = std::make_shared<EncryptedOpParams>(
-    //        std::make_tuple(m_p_ctx_wrapper->encryptPlaintext(std::get<LogRegHornerBenchmarkDescription::Index_W>(encoded_params)),
-    //                        m_p_ctx_wrapper->encryptPlaintext(std::get<LogRegHornerBenchmarkDescription::Index_b>(encoded_params)),
-    //                        m_p_ctx_wrapper->encryptPlaintext(std::get<LogRegHornerBenchmarkDescription::Index_X>(encoded_params))));
 
-    EncryptedOpParams retval; // = std::make_tuple<seal::Ciphertext, seal::Ciphertext, seal::Ciphertext>();
+    EncryptedOpParams retval;
     m_p_ctx_wrapper->encryptor()->encrypt(std::get<LogRegHornerBenchmarkDescription::Index_W>(encoded_params), std::get<LogRegHornerBenchmarkDescription::Index_W>(retval));
     m_p_ctx_wrapper->encryptor()->encrypt(std::get<LogRegHornerBenchmarkDescription::Index_b>(encoded_params), std::get<LogRegHornerBenchmarkDescription::Index_b>(retval));
     std::get<LogRegHornerBenchmarkDescription::Index_X>(retval) = m_p_ctx_wrapper->encrypt(std::get<LogRegHornerBenchmarkDescription::Index_X>(encoded_params));
@@ -314,7 +332,7 @@ hebench::APIBridge::Handle LogRegHornerBenchmark::decrypt(hebench::APIBridge::Ha
 {
     // only supports decrypting results from operate
 
-    seal::Ciphertext cipher =
+    const seal::Ciphertext &cipher =
         this->getEngine().retrieveFromHandle<seal::Ciphertext>(h_encrypted_data, EncryptedResultTag);
     seal::Plaintext retval = m_p_ctx_wrapper->decrypt(cipher);
     // just return a copy
@@ -338,8 +356,14 @@ void LogRegHornerBenchmark::store(hebench::APIBridge::Handle h_remote_data,
 {
     // only supports storing results from operate
 
+    assert(count == 0 || p_h_local_data);
     if (count > 0)
     {
+        // pad with zeros any excess local handles as per specifications
+        std::memset(p_h_local_data, 0, sizeof(hebench::APIBridge::Handle) * count);
+
+        // since remote and host are the same, we just need to return a copy
+        // of the remote as local data.
         p_h_local_data[0] = this->getEngine().duplicateHandle(h_remote_data, EncryptedResultTag);
     } // end if
 }
@@ -349,7 +373,7 @@ hebench::APIBridge::Handle LogRegHornerBenchmark::operate(hebench::APIBridge::Ha
 {
     // input to operation is always EncryptedOpParams
 
-    EncryptedOpParams remote =
+    const EncryptedOpParams &remote =
         this->getEngine().retrieveFromHandle<EncryptedOpParams>(h_remote_packed, EncryptedOpParamsTag);
 
     // extract our internal representation from handle
@@ -426,7 +450,6 @@ hebench::APIBridge::Handle LogRegHornerBenchmark::operate(hebench::APIBridge::Ha
     std::vector<seal::Plaintext> plain_coeff_copy = m_plain_coeff;
     seal::Ciphertext retval                       = m_p_ctx_wrapper->evaluatePolynomial(cipher_lr, plain_coeff_copy);
 
-    // use smart ptr to be able to copy during store phase
     return this->getEngine().createHandle<decltype(retval)>(sizeof(seal::Ciphertext),
                                                             EncryptedResultTag,
                                                             std::move(retval));

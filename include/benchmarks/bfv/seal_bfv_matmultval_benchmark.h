@@ -5,6 +5,9 @@
 #pragma once
 
 #include <array>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include "engine/seal_context.h"
 #include "hebench/api_bridge/cpp/hebench.hpp"
@@ -16,18 +19,17 @@ class MatMultValBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
     HEBERROR_DECLARE_CLASS_NAME(bfv::MatMultValBenchmarkDescription)
-
 public:
-    static constexpr std::int64_t MatMultValOtherID = 0;
-
+    static constexpr std::int64_t MatMultValOtherID   = 0;
+    static constexpr std::uint64_t NumOpParams        = 2; // number of operation parameters
     static constexpr const char *AlgorithmName        = "MatMultVal";
     static constexpr const char *AlgorithmDescription = "One matrix row per ciphertext, Encode transposes second matrix";
 
     // HE specific parameters
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 2;
-    static constexpr int DefaultCoeffMudulusBits            = 40;
-    static constexpr std::size_t DefaultPlainModulus        = 20;
+    static constexpr std::size_t DefaultCoeffModulusBits    = 40;
+    static constexpr std::size_t DefaultPlainModulusBits    = 20;
 
     enum : std::uint64_t
     {
@@ -35,7 +37,12 @@ public:
         Index_rows_M0      = Index_WParamsStart,
         Index_cols_M0,
         Index_cols_M1,
-        NumWorkloadParams
+        Index_ExtraWParamsStart,
+        Index_PolyModulusDegree = Index_ExtraWParamsStart,
+        Index_NumCoefficientModuli,
+        Index_CoefficientModulusBits,
+        Index_PlainModulusBits,
+        NumWorkloadParams // This workload requires 3 parameters, and we add 4 encryption params
     };
 
     MatMultValBenchmarkDescription();

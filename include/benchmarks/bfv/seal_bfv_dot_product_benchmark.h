@@ -15,18 +15,29 @@ namespace bfv {
 class DotProductBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(DotProductBenchmarkDescription)
-    static constexpr std::uint64_t NumWorkloadParams  = 1;
+    HEBERROR_DECLARE_CLASS_NAME(bfv::DotProductBenchmarkDescription)
     static constexpr const char *AlgorithmName        = "Vector";
     static constexpr const char *AlgorithmDescription = "One vector per ciphertext";
+    static constexpr std::size_t NumOpParams          = 2;
 
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 2;
-    static constexpr std::size_t DefaultCoeffModBits        = 45;
-    static constexpr int DefaultPlainModulusBits            = 20;
+    static constexpr std::size_t DefaultCoeffModulusBits    = 45;
+    static constexpr std::size_t DefaultPlainModulusBits    = 20;
+
+    enum : std::uint64_t
+    {
+        Index_WParamsStart = 0,
+        Index_n            = Index_WParamsStart,
+        Index_ExtraWParamsStart,
+        Index_PolyModulusDegree = Index_ExtraWParamsStart,
+        Index_NumCoefficientModuli,
+        Index_CoefficientModulusBits,
+        Index_PlainModulusBits,
+        NumWorkloadParams // This workload requires 1 parameters, and we add 4 encryption params
+    };
 
 public:
-    DotProductBenchmarkDescription() {}
     DotProductBenchmarkDescription(hebench::APIBridge::Category category);
     ~DotProductBenchmarkDescription() override;
 
@@ -39,7 +50,7 @@ public:
 class DotProductBenchmark : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(SEALDotProductBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(bfv::DotProductBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x1;
@@ -65,7 +76,7 @@ public:
 
 private:
     SEALContextWrapper::Ptr m_p_ctx_wrapper;
-    unsigned int m_vector_size;
+    hebench::cpp::WorkloadParams::DotProduct m_w_params;
 };
 } // namespace bfv
 } // namespace sbe
