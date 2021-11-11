@@ -15,9 +15,11 @@
 ## Requirements <a name="requirements1"></a>
 Current build system uses Cmake.
 
-- Ubuntu 16.04 or 18.04
+- Ubuntu 16.04/18.04/20.04
 - C++17 capable compiler (tested with GCC 9.3)
 - CMake 3.12
+
+For a quick guide on getting started with the SEAL CPU Reference Backend, please refer to the [Quickstart Guide](quickstart_guide.md). Otherwise, for a more detailed walkthrough on modifying the build configuration / running this backend, continue below.
 
 ## Build Configuration <a name="build-configuration"></a>
 

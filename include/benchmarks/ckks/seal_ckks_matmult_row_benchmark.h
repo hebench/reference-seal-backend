@@ -13,12 +13,12 @@
 #include <hebench/api_bridge/cpp/hebench.hpp>
 
 namespace sbe {
-namespace bfv {
+namespace ckks {
 
 class MatMultRowBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(bfv::MatMultRowBenchmarkDescription)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::MatMultRowBenchmarkDescription)
 public:
     static constexpr std::int64_t MatMultRowOtherID   = 0x02;
     static constexpr std::uint64_t NumOpParams        = 2; // number of operation parameters
@@ -29,7 +29,7 @@ public:
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 3;
     static constexpr std::size_t DefaultCoeffModulusBits    = 40;
-    static constexpr std::size_t DefaultPlainModulusBits    = 20;
+    static constexpr std::size_t DefaultScaleBits           = DefaultCoeffModulusBits;
 
     enum : std::uint64_t
     {
@@ -41,7 +41,7 @@ public:
         Index_PolyModulusDegree = Index_ExtraWParamsStart,
         Index_NumCoefficientModuli,
         Index_CoefficientModulusBits,
-        Index_PlainModulusBits,
+        Index_ScaleExponentBits,
         NumWorkloadParams // This workload requires 3 parameters, and we add 4 encryption params
     };
 
@@ -58,7 +58,7 @@ public:
 class MatMultRowLatencyBenchmark final : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(bfv::MatMultRowBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::MatMultRowBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x1;
@@ -135,19 +135,19 @@ private:
     typedef OpParamSampleM1<seal::Plaintext> OpParamSampleM1Plain;
     typedef OpParamSampleM1<seal::Ciphertext> OpParamSampleM1Cipher;
 
-    OpParamSampleM0Plain encodeM0(const std::vector<gsl::span<const std::int64_t>> &mat,
+    OpParamSampleM0Plain encodeM0(const std::vector<gsl::span<const double>> &mat,
                                   std::size_t dim1, std::size_t dim2, std::size_t dim3);
-    OpParamSampleM1Plain encodeM1(const std::vector<gsl::span<const std::int64_t>> &mat,
+    OpParamSampleM1Plain encodeM1(const std::vector<gsl::span<const double>> &mat,
                                   std::size_t dim2, std::size_t dim3);
     std::vector<seal::Ciphertext> matmultrow(const std::vector<seal::Ciphertext> &A,
                                              const seal::Ciphertext &B,
                                              std::size_t dim2);
-    std::vector<std::vector<std::int64_t>> decodeResult(std::vector<seal::Plaintext> vec_pt_res,
-                                                        std::size_t dim1, std::size_t dim3);
+    std::vector<std::vector<double>> decodeResult(std::vector<seal::Plaintext> vec_pt_res,
+                                                  std::size_t dim1, std::size_t dim3);
 
     SEALContextWrapper::Ptr m_p_ctx_wrapper;
     hebench::cpp::WorkloadParams::MatrixMultiply m_w_params;
 };
 
-} // namespace bfv
+} // namespace ckks
 } // namespace sbe

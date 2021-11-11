@@ -13,12 +13,12 @@
 
 #include <omp.h>
 
-#include "benchmarks/bfv/seal_bfv_matmult_row_benchmark.h"
+#include "benchmarks/ckks/seal_ckks_matmult_row_benchmark.h"
 #include "engine/seal_engine.h"
 #include "engine/seal_types.h"
 
 namespace sbe {
-namespace bfv {
+namespace ckks {
 
 //--------------------------------------------------
 // class MatMultRowBenchmarkDescription
@@ -28,12 +28,12 @@ MatMultRowBenchmarkDescription::MatMultRowBenchmarkDescription()
 {
     std::memset(&m_descriptor, 0, sizeof(hebench::APIBridge::BenchmarkDescriptor));
     m_descriptor.workload                                   = hebench::APIBridge::Workload::MatrixMultiply;
-    m_descriptor.data_type                                  = hebench::APIBridge::DataType::Int64;
+    m_descriptor.data_type                                  = hebench::APIBridge::DataType::Float64;
     m_descriptor.category                                   = hebench::APIBridge::Category::Latency;
     m_descriptor.cat_params.latency.warmup_iterations_count = 1;
     m_descriptor.cat_params.latency.min_test_time_ms        = 0;
     m_descriptor.cipher_param_mask                          = HEBENCH_HE_PARAM_FLAGS_ALL_CIPHER;
-    m_descriptor.scheme                                     = HEBENCH_HE_SCHEME_BFV;
+    m_descriptor.scheme                                     = HEBENCH_HE_SCHEME_CKKS;
     m_descriptor.security                                   = HEBENCH_HE_SECURITY_128;
     m_descriptor.other                                      = MatMultRowOtherID;
 
@@ -45,7 +45,7 @@ MatMultRowBenchmarkDescription::MatMultRowBenchmarkDescription()
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
-    default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultPlainModulusBits, "PlainModulusBits");
+    default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultScaleBits, "ScaleBits");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -85,7 +85,7 @@ std::string MatMultRowBenchmarkDescription::getBenchmarkDescription(const hebenc
     std::uint64_t poly_modulus_degree  = p_w_params->params[MatMultRowBenchmarkDescription::Index_PolyModulusDegree].u_param;
     std::uint64_t multiplicative_depth = p_w_params->params[MatMultRowBenchmarkDescription::Index_NumCoefficientModuli].u_param;
     std::uint64_t coeff_mudulus_bits   = p_w_params->params[MatMultRowBenchmarkDescription::Index_CoefficientModulusBits].u_param;
-    std::uint64_t plain_modulus_bits   = p_w_params->params[MatMultRowBenchmarkDescription::Index_PlainModulusBits].u_param;
+    std::uint64_t scale_bits           = p_w_params->params[MatMultRowBenchmarkDescription::Index_ScaleExponentBits].u_param;
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
@@ -94,9 +94,8 @@ std::string MatMultRowBenchmarkDescription::getBenchmarkDescription(const hebenc
     for (std::size_t i = 1; i < multiplicative_depth; ++i)
         ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
-       << ", , Plain Modulus, " << plain_modulus_bits << std::endl
-       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl;
-    return ss.str();
+       << ", , Scale, 2^" << scale_bits << std::endl
+       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription;
 
     return ss.str();
 }
@@ -112,10 +111,10 @@ MatMultRowLatencyBenchmark::MatMultRowLatencyBenchmark(hebench::cpp::BaseEngine 
     m_w_params(bench_params)
 {
     if (bench_desc.workload != hebench::APIBridge::Workload::MatrixMultiply
-        || bench_desc.data_type != hebench::APIBridge::DataType::Int64
+        || bench_desc.data_type != hebench::APIBridge::DataType::Float64
         || bench_desc.category != hebench::APIBridge::Category::Latency
         || ((bench_desc.cipher_param_mask & 0x03) != 0x03)
-        || bench_desc.scheme != HEBENCH_HE_SCHEME_BFV
+        || bench_desc.scheme != HEBENCH_HE_SCHEME_CKKS
         || bench_desc.security != HEBENCH_HE_SECURITY_128
         || bench_desc.other != MatMultRowBenchmarkDescription::MatMultRowOtherID)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Benchmark descriptor received is not supported."),
@@ -124,7 +123,7 @@ MatMultRowLatencyBenchmark::MatMultRowLatencyBenchmark(hebench::cpp::BaseEngine 
     std::uint64_t poly_modulus_degree  = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_PolyModulusDegree);
     std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_NumCoefficientModuli);
     std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_CoefficientModulusBits);
-    std::uint64_t plain_modulus_bits   = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_PlainModulusBits);
+    std::uint64_t scale_bits           = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_ScaleExponentBits);
 
     if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
@@ -133,11 +132,19 @@ MatMultRowLatencyBenchmark::MatMultRowLatencyBenchmark(hebench::cpp::BaseEngine 
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(poly_modulus_degree,
-                                                           multiplicative_depth,
-                                                           static_cast<int>(coeff_mudulus_bits),
-                                                           static_cast<int>(plain_modulus_bits),
-                                                           seal::sec_level_type::tc128);
+    if (m_w_params.cols_M0 > (poly_modulus_degree / 2) || m_w_params.cols_M0 * m_w_params.cols_M1 > (poly_modulus_degree / 2))
+    {
+        std::stringstream ss;
+        ss << "Invalid workload parameters. This workload only supports matrices of dimensions (a x b) x (b x c) where 'b' and b * c is at max " << (poly_modulus_degree / 2) << " (e.g. PolyModulusDegree / 2).";
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS(ss.str()),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+    } // end if
+
+    m_p_ctx_wrapper = SEALContextWrapper::createCKKSContext(poly_modulus_degree,
+                                                            multiplicative_depth,
+                                                            static_cast<int>(coeff_mudulus_bits),
+                                                            static_cast<int>(scale_bits),
+                                                            seal::sec_level_type::tc128);
 }
 
 MatMultRowLatencyBenchmark::~MatMultRowLatencyBenchmark()
@@ -154,7 +161,7 @@ hebench::APIBridge::Handle MatMultRowLatencyBenchmark::encode(const hebench::API
 
     // convert raw matrix data into mat[row][col] format
 
-    std::array<std::vector<gsl::span<const std::int64_t>>, MatMultRowBenchmarkDescription::NumOpParams> mats;
+    std::array<std::vector<gsl::span<const double>>, MatMultRowBenchmarkDescription::NumOpParams> mats;
     for (std::uint64_t op_param_i = 0; op_param_i < MatMultRowBenchmarkDescription::NumOpParams; ++op_param_i)
     {
         std::uint64_t mat_rows, mat_cols;
@@ -171,7 +178,7 @@ hebench::APIBridge::Handle MatMultRowLatencyBenchmark::encode(const hebench::API
             break;
         } // end switch
 
-        std::vector<gsl::span<const std::int64_t>> &mat = mats[op_param_i];
+        std::vector<gsl::span<const double>> &mat = mats[op_param_i];
         mat.resize(mat_rows);
 
         const hebench::APIBridge::DataPack &data_pack_mat = findDataPack(*p_parameters, op_param_i);
@@ -183,15 +190,15 @@ hebench::APIBridge::Handle MatMultRowLatencyBenchmark::encode(const hebench::API
             throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Unexpected empty buffer in data pack."),
                                              HEBENCH_ECODE_CRITICAL_ERROR);
 
-        gsl::span<std::int64_t> raw_mat =
-            gsl::span<std::int64_t>(reinterpret_cast<std::int64_t *>(data_pack_mat.p_buffers[0].p),
-                                    data_pack_mat.p_buffers[0].size / sizeof(std::int64_t));
+        gsl::span<double> raw_mat =
+            gsl::span<double>(reinterpret_cast<double *>(data_pack_mat.p_buffers[0].p),
+                              data_pack_mat.p_buffers[0].size / sizeof(double));
         if (raw_mat.size() < mat_rows * mat_cols)
             throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Insufficient data for parameter 0 sample."),
                                              HEBENCH_ECODE_CRITICAL_ERROR);
 
         for (std::uint64_t row_i = 0; row_i < mat.size(); row_i++)
-            mat[row_i] = gsl::span<std::int64_t>(&raw_mat[row_i * mat_cols], mat_cols);
+            mat[row_i] = gsl::span<double>(&raw_mat[row_i * mat_cols], mat_cols);
     } // end for
 
     // do the actual encode
@@ -205,40 +212,35 @@ hebench::APIBridge::Handle MatMultRowLatencyBenchmark::encode(const hebench::API
                                                             std::move(retval));
 }
 
-MatMultRowLatencyBenchmark::OpParamSampleM0Plain MatMultRowLatencyBenchmark::encodeM0(const std::vector<gsl::span<const std::int64_t>> &mat,
+MatMultRowLatencyBenchmark::OpParamSampleM0Plain MatMultRowLatencyBenchmark::encodeM0(const std::vector<gsl::span<const double>> &mat,
                                                                                       std::size_t dim1, std::size_t dim2, std::size_t dim3)
 {
     assert(mat.size() >= dim1 && mat.front().size() >= dim2);
 
-    std::size_t encoder_row_size = m_p_ctx_wrapper->BFVEncoder()->slot_count() / 2;
-
     // cleartext vector for holding rows of Matrix-A at a time
-    std::vector<std::int64_t> cleartext_vec_a(m_p_ctx_wrapper->BFVEncoder()->slot_count(), 0);
+    std::vector<double> cleartext_vec_a(m_p_ctx_wrapper->CKKSEncoder()->slot_count(), 0);
 
-    // Spaces normally == slots / dim 2. But now row_size since using batching encoder
-    size_t spacers = encoder_row_size / dim2;
+    size_t spacers = m_p_ctx_wrapper->CKKSEncoder()->slot_count() / dim2;
 
     // a container for each of Matrix-A's rows in their own plaintext
-    std::vector<std::vector<int64_t>> vec_container_a;
-    for (std::size_t i = 0; i < dim1; i += 2)
+    std::vector<std::vector<double>> vec_container_a;
+    for (std::size_t i = 0; i < dim1; i++)
     {
         for (std::size_t j = 0; j < dim2; j++)
         {
             for (std::size_t k = 0; k < dim3; k++)
             {
                 cleartext_vec_a[spacers * j + k] = mat[i][j];
-                if (i + 1 < dim1)
-                    cleartext_vec_a[encoder_row_size + (spacers * j + k)] = mat[i + 1][j];
             }
         }
         vec_container_a.push_back(cleartext_vec_a);
     }
 
     // Encoding vectors of input into plaintext vectors
-    // (For Matrix A, one for every two rows)
+    // (For Matrix A, one for every row)
     std::vector<seal::Plaintext> vec_pt_a(vec_container_a.size());
     for (size_t i = 0; i < vec_container_a.size(); i++)
-        m_p_ctx_wrapper->BFVEncoder()->encode(vec_container_a[i], vec_pt_a[i]);
+        vec_pt_a[i] = m_p_ctx_wrapper->encodeVector(vec_container_a[i]);
 
     // return vec_pt_a;
     OpParamSampleM0Plain retval;
@@ -249,30 +251,26 @@ MatMultRowLatencyBenchmark::OpParamSampleM0Plain MatMultRowLatencyBenchmark::enc
     return retval;
 }
 
-MatMultRowLatencyBenchmark::OpParamSampleM1Plain MatMultRowLatencyBenchmark::encodeM1(const std::vector<gsl::span<const std::int64_t>> &mat,
+MatMultRowLatencyBenchmark::OpParamSampleM1Plain MatMultRowLatencyBenchmark::encodeM1(const std::vector<gsl::span<const double>> &mat,
                                                                                       std::size_t dim2, std::size_t dim3)
 {
     assert(mat.size() >= dim2 && mat.front().size() >= dim3);
 
-    std::size_t encoder_row_size = m_p_ctx_wrapper->BFVEncoder()->slot_count() / 2;
-
     // cleartext vector for holding rows of Matrix-B at a time
-    std::vector<std::int64_t> cleartext_vec_b(m_p_ctx_wrapper->BFVEncoder()->slot_count(), 0);
+    std::vector<double> cleartext_vec_b(m_p_ctx_wrapper->CKKSEncoder()->slot_count(), 0);
 
-    // Spaces normally == slots / dim 2. But now row_size since using batching encoder
-    size_t spacers = encoder_row_size / dim2;
+    size_t spacers = m_p_ctx_wrapper->CKKSEncoder()->slot_count() / dim2;
 
     for (std::size_t j = 0; j < dim2; j++)
     {
         for (std::size_t k = 0; k < dim3; k++)
         {
-            cleartext_vec_b[spacers * j + k]                      = mat[j][k];
-            cleartext_vec_b[encoder_row_size + (spacers * j + k)] = mat[j][k];
+            cleartext_vec_b[spacers * j + k] = mat[j][k];
         }
     }
 
     seal::Plaintext pt_b;
-    m_p_ctx_wrapper->BFVEncoder()->encode(cleartext_vec_b, pt_b);
+    pt_b = m_p_ctx_wrapper->encodeVector(cleartext_vec_b);
 
     //return pt_b;
     OpParamSampleM1Plain retval;
@@ -302,16 +300,16 @@ void MatMultRowLatencyBenchmark::decode(hebench::APIBridge::Handle h_encoded_dat
                 throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Unexpected empty handle 'h_encoded_data'."),
                                                  HEBENCH_ECODE_CRITICAL_ERROR);
 
-            std::vector<std::vector<std::int64_t>> clear_result =
+            std::vector<std::vector<double>> clear_result =
                 decodeResult(*encoded.data, encoded.dims.rows, encoded.dims.cols);
 
-            gsl::span<std::int64_t> result_raw =
-                gsl::span<std::int64_t>(reinterpret_cast<std::int64_t *>(result_component.p_buffers[0].p),
-                                        result_component.p_buffers[0].size / sizeof(int64_t));
+            gsl::span<double> result_raw =
+                gsl::span<double>(reinterpret_cast<double *>(result_component.p_buffers[0].p),
+                                  result_component.p_buffers[0].size / sizeof(double));
 
             // size of data pointed may be more or less than required to hold the result, so,
             // copy as much as we can
-            gsl::span<std::int64_t> result_raw_row = result_raw;
+            gsl::span<double> result_raw_row = result_raw;
             for (auto row_it = clear_result.begin(); !result_raw_row.empty() && row_it != clear_result.end(); ++row_it)
             {
                 std::size_t min_size = std::min(row_it->size(), result_raw_row.size());
@@ -323,33 +321,24 @@ void MatMultRowLatencyBenchmark::decode(hebench::APIBridge::Handle h_encoded_dat
     } // end if
 }
 
-std::vector<std::vector<std::int64_t>> MatMultRowLatencyBenchmark::decodeResult(std::vector<seal::Plaintext> vec_pt_res,
-                                                                                std::size_t dim1, std::size_t dim3)
+std::vector<std::vector<double>> MatMultRowLatencyBenchmark::decodeResult(std::vector<seal::Plaintext> vec_pt_res,
+                                                                          std::size_t dim1, std::size_t dim3)
 {
-    std::size_t encoder_row_size = m_p_ctx_wrapper->BFVEncoder()->slot_count() / 2;
+    std::vector<std::vector<double>> ret_mat(dim1, std::vector<double>(dim3));
+    std::vector<std::vector<double>> vec_container_res;
+    std::vector<double> vec_result(m_p_ctx_wrapper->CKKSEncoder()->slot_count(), 0);
 
-    std::vector<std::vector<std::int64_t>> ret_mat(dim1, std::vector<std::int64_t>(dim3));
-    std::vector<std::vector<std::int64_t>> vec_container_res;
-    std::vector<std::int64_t> vec_result(m_p_ctx_wrapper->BFVEncoder()->slot_count(), 0);
-
-    for (size_t i = 0; i < vec_pt_res.size(); i += 2)
+    for (size_t i = 0; i < vec_pt_res.size(); i++)
     {
-        m_p_ctx_wrapper->BFVEncoder()->decode(vec_pt_res[i], vec_result);
+        m_p_ctx_wrapper->CKKSEncoder()->decode(vec_pt_res[i], vec_result);
         vec_container_res.push_back(vec_result);
-        if (i + 1 < vec_pt_res.size())
-        {
-            m_p_ctx_wrapper->BFVEncoder()->decode(vec_pt_res[i + 1], vec_result);
-            vec_container_res.push_back(vec_result);
-        }
     }
 
-    for (std::size_t i = 0; i < dim1; i += 2)
+    for (std::size_t i = 0; i < dim1; i++)
     {
         for (std::size_t j = 0; j < dim3; j++)
         {
-            ret_mat[i][j] = vec_container_res[i / 2][j];
-            if (i + 1 < dim1)
-                ret_mat[i + 1][j] = vec_container_res[i / 2][j + encoder_row_size];
+            ret_mat[i][j] = vec_container_res[i][j];
         }
     }
     return ret_mat;
@@ -466,13 +455,11 @@ std::vector<seal::Ciphertext> MatMultRowLatencyBenchmark::matmultrow(const std::
                                                                      const seal::Ciphertext &B,
                                                                      std::size_t dim2)
 {
-    std::size_t encoder_row_size = m_p_ctx_wrapper->BFVEncoder()->slot_count() / 2;
-
     std::vector<seal::Ciphertext> result(A.size());
-    //std::vector<seal::Ciphertext> base_ct_res = result;
+
     std::vector<seal::Ciphertext> base_ct_res(A.size()); // avoids the copy of empty ciphertexts
-    // Spaces normally == slots / dim 2. But now row_size since using batching encoder
-    int spacers = static_cast<int>(encoder_row_size) / dim2;
+
+    int spacers = static_cast<int>(m_p_ctx_wrapper->CKKSEncoder()->slot_count()) / dim2;
 
     int num_threads = omp_get_max_threads();
     int threads_at_level[2];
@@ -501,11 +488,11 @@ std::vector<seal::Ciphertext> MatMultRowLatencyBenchmark::matmultrow(const std::
         for (std::size_t j = 1; j < dim2; j++)
         {
             seal::Ciphertext rotated;
-            m_p_ctx_wrapper->evaluator()->rotate_rows(base_ct_res[i],
-                                                      j * spacers,
-                                                      m_p_ctx_wrapper->galoisKeys(),
-                                                      rotated,
-                                                      seal::MemoryPoolHandle::ThreadLocal());
+            m_p_ctx_wrapper->evaluator()->rotate_vector(base_ct_res[i],
+                                                        j * spacers,
+                                                        m_p_ctx_wrapper->galoisKeys(),
+                                                        rotated,
+                                                        seal::MemoryPoolHandle::ThreadLocal());
             std::scoped_lock<std::mutex> lock(mtx);
             m_p_ctx_wrapper->evaluator()->add_inplace(result[i], rotated);
         }
@@ -517,5 +504,5 @@ std::vector<seal::Ciphertext> MatMultRowLatencyBenchmark::matmultrow(const std::
     return result;
 }
 
-} // namespace bfv
+} // namespace ckks
 } // namespace sbe

@@ -15,11 +15,10 @@ namespace ckks {
 class MatMultValBenchmarkDescription : public hebench::cpp::BenchmarkDescription
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(MatMultValBenchmarkDescription)
-
+    HEBERROR_DECLARE_CLASS_NAME(ckks::MatMultValBenchmarkDescription)
 public:
-    static constexpr std::int64_t MatMultValOtherID = 0;
-
+    static constexpr std::uint64_t NumOpParams        = 2; // number of operation parameters
+    static constexpr std::int64_t MatMultValOtherID   = 0;
     static constexpr const char *AlgorithmName        = "MatMultVal";
     static constexpr const char *AlgorithmDescription = "One matrix row per ciphertext, Encode transposes second matrix";
 
@@ -35,7 +34,12 @@ public:
         Index_rows_M0      = Index_WParamsStart,
         Index_cols_M0,
         Index_cols_M1,
-        NumWorkloadParams
+        Index_ExtraWParamsStart,
+        Index_PolyModulusDegree = Index_ExtraWParamsStart,
+        Index_NumCoefficientModuli,
+        Index_CoefficientModulusBits,
+        Index_ScaleExponentBits,
+        NumWorkloadParams // This workload requires 3 parameters, and we add 4 encryption params
     };
 
     MatMultValBenchmarkDescription();
@@ -51,7 +55,7 @@ public:
 class MatMultValBenchmark : public hebench::cpp::BaseBenchmark
 {
 public:
-    HEBERROR_DECLARE_CLASS_NAME(MatMultValBenchmark)
+    HEBERROR_DECLARE_CLASS_NAME(ckks::MatMultValBenchmark)
 
 public:
     static constexpr std::int64_t tag = 0x20 + MatMultValBenchmarkDescription::MatMultValOtherID;
