@@ -338,7 +338,10 @@ std::vector<std::vector<double>> MatMultRowLatencyBenchmark::decodeResult(std::v
     {
         for (std::size_t j = 0; j < dim3; j++)
         {
-            ret_mat[i][j] = vec_container_res[i][j];
+            if (std::abs(vec_container_res[i][j]) < 0.00005)
+                ret_mat[i][j] = 0;
+            else
+                ret_mat[i][j] = vec_container_res[i][j];
         }
     }
     return ret_mat;

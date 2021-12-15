@@ -25,7 +25,7 @@ public:
     // HE specific parameters
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 2;
-    static constexpr int DefaultCoeffMudulusBits            = 40;
+    static constexpr int DefaultCoeffMudulusBits            = 45;
     static constexpr int DefaultScaleBits                   = DefaultCoeffMudulusBits;
 
     enum : std::uint64_t

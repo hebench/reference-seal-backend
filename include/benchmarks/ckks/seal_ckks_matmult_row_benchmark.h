@@ -28,7 +28,7 @@ public:
     // encryption params
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 3;
-    static constexpr std::size_t DefaultCoeffModulusBits    = 40;
+    static constexpr std::size_t DefaultCoeffModulusBits    = 45;
     static constexpr std::size_t DefaultScaleBits           = DefaultCoeffModulusBits;
 
     enum : std::uint64_t
