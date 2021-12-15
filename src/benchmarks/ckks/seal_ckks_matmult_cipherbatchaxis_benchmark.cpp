@@ -243,8 +243,10 @@ void MatMultCipherBatchAxisBenchmark::decode(hebench::APIBridge::Handle h_encode
                         {
                             std::vector<double> clear_decoded;
                             m_p_ctx_wrapper->CKKSEncoder()->decode(encoded[op_param_i].at(row_i, col_i), clear_decoded);
-
-                            *it = clear_decoded.empty() ? 0.0 : clear_decoded.front();
+                            if (clear_decoded.empty() || std::abs(clear_decoded.front()) < 0.00005)
+                                *it = 0.0;
+                            else
+                                *it = clear_decoded.front();
                             ++it;
                         } // end for
                     } // end for
