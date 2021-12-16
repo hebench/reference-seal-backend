@@ -305,7 +305,10 @@ void LogRegHornerBenchmark::decode(hebench::APIBridge::Handle h_encoded_data, he
             if (result.p_buffers[result_sample_i].p && result.p_buffers[result_sample_i].size >= sizeof(double))
             {
                 double *p_result_sample = reinterpret_cast<double *>(result.p_buffers[result_sample_i].p);
-                *p_result_sample        = decoded[result_sample_i];
+                if (std::abs(decoded[result_sample_i]) < 0.00005)
+                    *p_result_sample = 0.0;
+                else
+                    *p_result_sample = decoded[result_sample_i];
             } // end if
         } // end for
     } // end if

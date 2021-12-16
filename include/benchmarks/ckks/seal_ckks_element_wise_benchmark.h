@@ -22,7 +22,7 @@ public:
 
     static constexpr std::size_t DefaultPolyModulusDegree   = 8192;
     static constexpr std::size_t DefaultMultiplicativeDepth = 2;
-    static constexpr std::size_t DefaultCoeffModulusBits    = 50;
+    static constexpr std::size_t DefaultCoeffModulusBits    = 45;
     static constexpr std::size_t DefaultScaleBits           = DefaultCoeffModulusBits;
 
     enum : std::uint64_t
