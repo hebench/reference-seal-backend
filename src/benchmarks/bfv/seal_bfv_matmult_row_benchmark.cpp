@@ -132,6 +132,13 @@ MatMultRowLatencyBenchmark::MatMultRowLatencyBenchmark(hebench::cpp::BaseEngine 
     if (coeff_mudulus_bits < 1)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
+    if (m_w_params.cols_M0 > (poly_modulus_degree / 2) || m_w_params.cols_M0 * m_w_params.cols_M1 > (poly_modulus_degree / 2))
+    {
+        std::stringstream ss;
+        ss << "Invalid workload parameters. This workload only supports matrices of dimensions (a x b) x (b x c) where 'b' and b * c is at max " << (poly_modulus_degree / 2) << " (e.g. PolyModulusDegree / 2).";
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS(ss.str()),
+                                         HEBENCH_ECODE_INVALID_ARGS);
+    } // end if
 
     m_p_ctx_wrapper = SEALContextWrapper::createBFVContext(poly_modulus_degree,
                                                            multiplicative_depth,

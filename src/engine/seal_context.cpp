@@ -287,21 +287,25 @@ seal::Plaintext SEALContextWrapper::encodeVector(const std::vector<std::int64_t>
 
 seal::Ciphertext SEALContextWrapper::accumulateBFV(const seal::Ciphertext &cipher, std::size_t count)
 {
-    if (count > (BFVEncoder()->slot_count() >> 1))
-        count = (BFVEncoder()->slot_count() >> 1);
-
     seal::Ciphertext retval;
     if (count > 0)
     {
-        retval                  = cipher;
-        auto rotations_required = seal::util::get_significant_bit_count(count);
-        if (static_cast<decltype(count)>(1 << (rotations_required - 1)) == count)
+        retval                         = cipher;
+        std::size_t row_adjusted_count = (count > (BFVEncoder()->slot_count() / 2)) ? BFVEncoder()->slot_count() / 2 : count;
+        auto rotations_required        = seal::util::get_significant_bit_count(row_adjusted_count);
+        if (static_cast<decltype(row_adjusted_count)>(1 << (rotations_required - 1)) == row_adjusted_count)
             --rotations_required; // count is a power of 2
         for (int rotation_i = 0; rotation_i < rotations_required; ++rotation_i)
         {
             seal::Ciphertext rotated;
             evaluator()->rotate_rows(retval, (1 << rotation_i), m_galois_keys, rotated, seal::MemoryPoolHandle::ThreadLocal());
             evaluator()->add_inplace(retval, rotated);
+        }
+        if (count > BFVEncoder()->slot_count() / 2)
+        {
+            seal::Ciphertext row2 = retval;
+            evaluator()->rotate_columns_inplace(row2, m_galois_keys);
+            evaluator()->add_inplace(retval, row2);
         }
     }
     else
