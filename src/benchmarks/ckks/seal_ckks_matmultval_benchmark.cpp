@@ -135,7 +135,7 @@ MatMultValBenchmark::MatMultValBenchmark(hebench::cpp::BaseEngine &engine,
     if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
-    if (m_w_params.cols_M0 - 1 > poly_modulus_degree / 2)
+    if (m_w_params.cols_M0 > poly_modulus_degree / 2)
     {
         std::stringstream ss;
         ss << "Invalid workload parameters. This workload only supports matrices of dimensions (n x "
