@@ -10,9 +10,8 @@
 #include <memory>
 #include <mutex>
 #include <numeric>
-#include <vector>
-
 #include <omp.h>
+#include <vector>
 
 #include "benchmarks/ckks/seal_ckks_matmultval_benchmark.h"
 #include "engine/seal_engine.h"

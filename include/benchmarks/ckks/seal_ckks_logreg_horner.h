@@ -26,6 +26,9 @@ public:
     static constexpr const char *AlgorithmName        = "HornerPolyEval";
     static constexpr const char *AlgorithmDescription = "Horner method for polynomial evaluation, single input vector per ciphertext";
 
+    // other workload parameters
+    static constexpr std::size_t DefaultNumThreads = 0; // 0 - use all available threads
+
     // Operation parameter indices
     enum : std::uint64_t
     {
@@ -46,6 +49,7 @@ public:
         Index_NumCoefficientModuli,
         Index_CoefficientModulusBits,
         Index_ScaleExponentBits,
+        Index_NumThreads,
         NumWorkloadParams // This workload requires 1 parameters, and we add 4 encryption params
     };
 
@@ -118,6 +122,7 @@ private:
     SEALContextWrapper::Ptr m_p_ctx_wrapper;
     hebench::cpp::WorkloadParams::LogisticRegression m_w_params;
     std::vector<seal::Plaintext> m_plain_coeff; // encoded coefficients for sigmoid polynomial approx
+    int m_num_threads;
 };
 } // namespace ckks
 } // namespace sbe

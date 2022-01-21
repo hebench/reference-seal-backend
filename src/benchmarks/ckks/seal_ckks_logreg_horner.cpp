@@ -7,6 +7,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <omp.h>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -60,6 +61,7 @@ LogRegHornerBenchmarkDescription::LogRegHornerBenchmarkDescription(hebench::APIB
     default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
     default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultScaleBits, "ScaleBits");
+    default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultNumThreads, "NumThreads");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -93,6 +95,9 @@ std::string LogRegHornerBenchmarkDescription::getBenchmarkDescription(const hebe
     std::uint64_t m_multiplicative_depth = p_w_params->params[LogRegHornerBenchmarkDescription::Index_NumCoefficientModuli].u_param;
     std::uint64_t m_coeff_mudulus_bits   = p_w_params->params[LogRegHornerBenchmarkDescription::Index_CoefficientModulusBits].u_param;
     std::uint64_t m_scale_bits           = p_w_params->params[LogRegHornerBenchmarkDescription::Index_ScaleExponentBits].u_param;
+    std::uint64_t num_threads            = p_w_params->params[LogRegHornerBenchmarkDescription::Index_NumThreads].u_param;
+    if (num_threads <= 0)
+        num_threads = omp_get_max_threads();
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
@@ -102,7 +107,8 @@ std::string LogRegHornerBenchmarkDescription::getBenchmarkDescription(const hebe
         ss << ", " << m_coeff_mudulus_bits;
     ss << ", 60" << std::endl
        << ", , Scale, 2^" << m_scale_bits << std::endl
-       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription;
+       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl
+       << ", Number of threads, " << num_threads;
 
     return ss.str();
 }
@@ -139,6 +145,10 @@ LogRegHornerBenchmark::LogRegHornerBenchmark(hebench::cpp::BaseEngine &engine,
     std::uint64_t m_multiplicative_depth = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_NumCoefficientModuli);
     std::uint64_t m_coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_CoefficientModulusBits);
     std::uint64_t m_scale_bits           = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_ScaleExponentBits);
+    m_num_threads                        = static_cast<int>(m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_NumThreads));
+    if (m_num_threads <= 0)
+        m_num_threads = omp_get_max_threads();
+
     if (m_coeff_mudulus_bits < 1)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
@@ -400,7 +410,7 @@ hebench::APIBridge::Handle LogRegHornerBenchmark::operate(hebench::APIBridge::Ha
     std::vector<seal::Ciphertext> cipher_dots(cipher_inputs.size());
     std::mutex mtx;
     std::exception_ptr p_ex;
-#pragma omp parallel for
+#pragma omp parallel for num_threads(m_num_threads)
     for (std::size_t input_i = 0; input_i < cipher_inputs.size(); ++input_i)
     {
         try

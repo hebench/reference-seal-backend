@@ -8,10 +8,9 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <omp.h>
 #include <stdexcept>
 #include <vector>
-
-#include <omp.h>
 
 #include "benchmarks/ckks/seal_ckks_dot_product_benchmark.h"
 #include "engine/seal_types.h"
