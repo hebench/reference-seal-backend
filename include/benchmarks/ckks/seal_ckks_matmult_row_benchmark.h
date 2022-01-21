@@ -31,6 +31,9 @@ public:
     static constexpr std::size_t DefaultCoeffModulusBits    = 45;
     static constexpr std::size_t DefaultScaleBits           = DefaultCoeffModulusBits;
 
+    // other workload parameters
+    static constexpr std::size_t DefaultNumThreads = 0; // 0 - use all available threads
+
     enum : std::uint64_t
     {
         Index_WParamsStart = 0,
@@ -42,6 +45,7 @@ public:
         Index_NumCoefficientModuli,
         Index_CoefficientModulusBits,
         Index_ScaleExponentBits,
+        Index_NumThreads,
         NumWorkloadParams // This workload requires 3 parameters, and we add 4 encryption params
     };
 
@@ -147,6 +151,7 @@ private:
 
     SEALContextWrapper::Ptr m_p_ctx_wrapper;
     hebench::cpp::WorkloadParams::MatrixMultiply m_w_params;
+    int m_num_threads;
 };
 
 } // namespace ckks

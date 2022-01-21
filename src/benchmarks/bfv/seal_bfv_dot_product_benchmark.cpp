@@ -8,6 +8,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <omp.h>
 #include <stdexcept>
 #include <vector>
 
@@ -55,6 +56,7 @@ DotProductBenchmarkDescription::DotProductBenchmarkDescription(hebench::APIBridg
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultPlainModulusBits, "PlainModulusBits");
+    default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultNumThreads, "NumThreads");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -87,6 +89,11 @@ std::string DotProductBenchmarkDescription::getBenchmarkDescription(const hebenc
     std::uint64_t multiplicative_depth = p_w_params->params[DotProductBenchmarkDescription::Index_NumCoefficientModuli].u_param;
     std::uint64_t coeff_mudulus_bits   = p_w_params->params[DotProductBenchmarkDescription::Index_CoefficientModulusBits].u_param;
     std::uint64_t plain_modulus_bits   = p_w_params->params[DotProductBenchmarkDescription::Index_PlainModulusBits].u_param;
+    std::uint64_t num_threads          = p_w_params->params[DotProductBenchmarkDescription::Index_NumThreads].u_param;
+    if (m_descriptor.category == hebench::APIBridge::Category::Latency)
+        num_threads = 1;
+    if (num_threads <= 0)
+        num_threads = omp_get_max_threads();
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
@@ -96,7 +103,8 @@ std::string DotProductBenchmarkDescription::getBenchmarkDescription(const hebenc
         ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
        << ", , Plain Text Modulus Bits, " << plain_modulus_bits << std::endl
-       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription;
+       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl
+       << ", Number of threads, " << num_threads;
 
     return ss.str();
 }
@@ -121,6 +129,11 @@ DotProductBenchmark::DotProductBenchmark(hebench::cpp::BaseEngine &engine,
     std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(DotProductBenchmarkDescription::Index_NumCoefficientModuli);
     std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(DotProductBenchmarkDescription::Index_CoefficientModulusBits);
     std::uint64_t plain_modulus_bits   = m_w_params.get<std::uint64_t>(DotProductBenchmarkDescription::Index_PlainModulusBits);
+    m_num_threads                      = static_cast<int>(m_w_params.get<std::uint64_t>(DotProductBenchmarkDescription::Index_NumThreads));
+    if (this->getDescriptor().category == hebench::APIBridge::Category::Latency)
+        m_num_threads = 1; // override threads to 1 for latency, since threading is on batch size
+    if (m_num_threads <= 0)
+        m_num_threads = omp_get_max_threads();
 
     if (coeff_mudulus_bits < 1)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
@@ -277,7 +290,7 @@ hebench::APIBridge::Handle DotProductBenchmark::operate(hebench::APIBridge::Hand
     result.resize(p_param_indexers[0].batch_size * p_param_indexers[1].batch_size);
     std::mutex mtx;
     std::exception_ptr p_ex;
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) num_threads(m_num_threads)
     for (uint64_t result_i = 0; result_i < p_param_indexers[0].batch_size; result_i++)
     {
         for (uint64_t result_x = 0; result_x < p_param_indexers[1].batch_size; result_x++)
