@@ -96,6 +96,8 @@ std::string LogRegHornerBenchmarkDescription::getBenchmarkDescription(const hebe
     std::uint64_t m_coeff_mudulus_bits   = p_w_params->params[LogRegHornerBenchmarkDescription::Index_CoefficientModulusBits].u_param;
     std::uint64_t m_scale_bits           = p_w_params->params[LogRegHornerBenchmarkDescription::Index_ScaleExponentBits].u_param;
     std::uint64_t num_threads            = p_w_params->params[LogRegHornerBenchmarkDescription::Index_NumThreads].u_param;
+    if (m_descriptor.category == hebench::APIBridge::Category::Latency)
+        num_threads = 1;
     if (num_threads <= 0)
         num_threads = omp_get_max_threads();
     if (!s_tmp.empty())
@@ -146,6 +148,8 @@ LogRegHornerBenchmark::LogRegHornerBenchmark(hebench::cpp::BaseEngine &engine,
     std::uint64_t m_coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_CoefficientModulusBits);
     std::uint64_t m_scale_bits           = m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_ScaleExponentBits);
     m_num_threads                        = static_cast<int>(m_w_params.get<std::uint64_t>(LogRegHornerBenchmarkDescription::Index_NumThreads));
+    if (this->getDescriptor().category == hebench::APIBridge::Category::Latency)
+        m_num_threads = 1; // override threads to 1 for latency, since threading is on batch size
     if (m_num_threads <= 0)
         m_num_threads = omp_get_max_threads();
 
