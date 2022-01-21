@@ -445,7 +445,7 @@ hebench::APIBridge::Handle LogRegHornerBenchmark::operate(hebench::APIBridge::Ha
     // - add bias to every result
     // - compute sigmoid on every result
 
-    seal::Ciphertext cipher_lr = m_p_ctx_wrapper->collapseCKKS(cipher_dots, true);
+    seal::Ciphertext cipher_lr = m_p_ctx_wrapper->collapseCKKS(cipher_dots, true, m_num_threads);
     cipher_dots.clear();
 
     // add bias
