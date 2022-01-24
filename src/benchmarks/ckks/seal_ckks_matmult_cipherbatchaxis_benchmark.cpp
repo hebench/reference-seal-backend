@@ -7,6 +7,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <omp.h>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -43,6 +44,7 @@ MatMultCipherBatchAxisBenchmarkDescription::MatMultCipherBatchAxisBenchmarkDescr
     default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
     default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultScaleBits, "ScaleBits");
+    default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultNumThreads, "NumThreads");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -93,6 +95,9 @@ std::string MatMultCipherBatchAxisBenchmarkDescription::getBenchmarkDescription(
     std::uint64_t multiplicative_depth = p_w_params->params[MatMultCipherBatchAxisBenchmarkDescription::Index_NumCoefficientModuli].u_param;
     std::uint64_t coeff_mudulus_bits   = p_w_params->params[MatMultCipherBatchAxisBenchmarkDescription::Index_CoefficientModulusBits].u_param;
     std::uint64_t scale_bits           = p_w_params->params[MatMultCipherBatchAxisBenchmarkDescription::Index_ScaleExponentBits].u_param;
+    std::uint64_t num_threads          = p_w_params->params[MatMultCipherBatchAxisBenchmarkDescription::Index_NumThreads].u_param;
+    if (num_threads <= 0)
+        num_threads = omp_get_max_threads();
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
@@ -102,7 +107,8 @@ std::string MatMultCipherBatchAxisBenchmarkDescription::getBenchmarkDescription(
         ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
        << ", , Scale, 2^" << scale_bits << std::endl
-       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription;
+       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl
+       << ", Number of threads, " << num_threads;
 
     return ss.str();
 }
@@ -133,6 +139,9 @@ MatMultCipherBatchAxisBenchmark::MatMultCipherBatchAxisBenchmark(hebench::cpp::B
     std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::Index_NumCoefficientModuli);
     std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::Index_CoefficientModulusBits);
     std::uint64_t scale_bits           = m_w_params.get<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::Index_ScaleExponentBits);
+    m_num_threads                      = static_cast<int>(m_w_params.get<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::Index_NumThreads));
+    if (m_num_threads <= 0)
+        m_num_threads = omp_get_max_threads();
 
     if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
@@ -365,7 +374,7 @@ hebench::APIBridge::Handle MatMultCipherBatchAxisBenchmark::operate(hebench::API
 
     std::mutex mtx;
     std::exception_ptr p_ex;
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) num_threads(m_num_threads)
     for (size_t out_ind0 = 0; out_ind0 < m0.rows(); ++out_ind0)
     {
         for (size_t out_ind1 = 0; out_ind1 < m1.cols(); ++out_ind1)

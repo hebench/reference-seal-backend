@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <new>
+#include <omp.h>
 #include <stdexcept>
 
 #include "engine/seal_context.h"
@@ -345,7 +346,7 @@ seal::Ciphertext SEALContextWrapper::accumulateCKKS(const seal::Ciphertext &ciph
     return retval;
 }
 
-seal::Ciphertext SEALContextWrapper::collapseCKKS(const std::vector<seal::Ciphertext> &ciphers, bool do_rotate)
+seal::Ciphertext SEALContextWrapper::collapseCKKS(const std::vector<seal::Ciphertext> &ciphers, bool do_rotate, int num_threads)
 {
     // Rotates each cipher to the right by its position in the vector, then
     // multiplies it by an identity with all zeroes and a 1 on the same position
@@ -360,7 +361,12 @@ seal::Ciphertext SEALContextWrapper::collapseCKKS(const std::vector<seal::Cipher
     retval.scale() = scale();
     std::mutex mtx;
     std::exception_ptr p_ex;
-#pragma omp parallel for
+    if (num_threads > static_cast<int>(ciphers.size()))
+        num_threads = ciphers.size();
+    if (num_threads <= 0)
+        num_threads = omp_get_max_threads();
+
+#pragma omp parallel for num_threads(num_threads)
     for (std::size_t i = 0; i < ciphers.size(); ++i)
     {
         try

@@ -83,7 +83,7 @@ public:
     // CKKS
     seal::Plaintext encodeVector(const std::vector<double> &values);
     seal::Ciphertext accumulateCKKS(const seal::Ciphertext &cipher, std::size_t count);
-    seal::Ciphertext collapseCKKS(const std::vector<seal::Ciphertext> &ciphers, bool do_rotate = true);
+    seal::Ciphertext collapseCKKS(const std::vector<seal::Ciphertext> &ciphers, bool do_rotate = true, int num_threads = 0);
 
 protected:
     SEALContextWrapper();

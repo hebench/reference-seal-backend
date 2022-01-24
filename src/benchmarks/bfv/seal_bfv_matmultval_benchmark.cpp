@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <numeric>
+#include <omp.h>
 #include <vector>
 
 #include "benchmarks/bfv/seal_bfv_matmultval_benchmark.h"
@@ -45,6 +46,7 @@ MatMultValBenchmarkDescription::MatMultValBenchmarkDescription()
     default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
     default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultPlainModulusBits, "PlainModulusBits");
+    default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultNumThreads, "NumThreads");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -86,6 +88,9 @@ std::string MatMultValBenchmarkDescription::getBenchmarkDescription(const hebenc
     std::uint64_t multiplicative_depth = p_w_params->params[MatMultValBenchmarkDescription::Index_NumCoefficientModuli].u_param;
     std::uint64_t coeff_mudulus_bits   = p_w_params->params[MatMultValBenchmarkDescription::Index_CoefficientModulusBits].u_param;
     std::uint64_t plain_modulus_bits   = p_w_params->params[MatMultValBenchmarkDescription::Index_PlainModulusBits].u_param;
+    std::uint64_t num_threads          = p_w_params->params[MatMultValBenchmarkDescription::Index_NumThreads].u_param;
+    if (num_threads <= 0)
+        num_threads = omp_get_max_threads();
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
@@ -95,7 +100,9 @@ std::string MatMultValBenchmarkDescription::getBenchmarkDescription(const hebenc
         ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
        << ", , Plain Modulus, " << plain_modulus_bits << std::endl
-       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl;
+       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl
+       << ", Number of threads, " << num_threads;
+
     return ss.str();
 
     return ss.str();
@@ -128,13 +135,16 @@ MatMultValBenchmark::MatMultValBenchmark(hebench::cpp::BaseEngine &engine,
     std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(MatMultValBenchmarkDescription::Index_NumCoefficientModuli);
     std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(MatMultValBenchmarkDescription::Index_CoefficientModulusBits);
     std::uint64_t plain_modulus_bits   = m_w_params.get<std::uint64_t>(MatMultValBenchmarkDescription::Index_PlainModulusBits);
+    m_num_threads                      = static_cast<int>(m_w_params.get<std::uint64_t>(MatMultValBenchmarkDescription::Index_NumThreads));
+    if (m_num_threads <= 0)
+        m_num_threads = omp_get_max_threads();
 
     // check values of the workload parameters and make sure they are supported by benchmark:
 
     if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
-    if (m_w_params.cols_M0 - 1 > poly_modulus_degree)
+    if (m_w_params.cols_M0 > poly_modulus_degree)
     {
         std::stringstream ss;
         ss << "Invalid workload parameters. This workload only supports matrices of dimensions (n x "
@@ -231,7 +241,7 @@ MatMultValBenchmark::doMatMultVal(const std::vector<seal::Ciphertext> &M0,
 
     std::exception_ptr p_ex;
     std::mutex mtx_ex;
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) num_threads(m_num_threads)
     for (size_t i = 0; i < m_w_params.rows_M0; ++i)
     {
         for (size_t j = 0; j < m_w_params.cols_M1; ++j)
