@@ -7,11 +7,10 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <omp.h>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
-
-#include <omp.h>
 
 #include "benchmarks/ckks/seal_ckks_matmult_row_benchmark.h"
 #include "engine/seal_engine.h"
@@ -46,6 +45,7 @@ MatMultRowBenchmarkDescription::MatMultRowBenchmarkDescription()
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultScaleBits, "ScaleBits");
+    default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultNumThreads, "NumThreads");
     this->addDefaultParameters(default_workload_params);
 }
 
@@ -86,6 +86,9 @@ std::string MatMultRowBenchmarkDescription::getBenchmarkDescription(const hebenc
     std::uint64_t multiplicative_depth = p_w_params->params[MatMultRowBenchmarkDescription::Index_NumCoefficientModuli].u_param;
     std::uint64_t coeff_mudulus_bits   = p_w_params->params[MatMultRowBenchmarkDescription::Index_CoefficientModulusBits].u_param;
     std::uint64_t scale_bits           = p_w_params->params[MatMultRowBenchmarkDescription::Index_ScaleExponentBits].u_param;
+    std::uint64_t num_threads          = p_w_params->params[MatMultRowBenchmarkDescription::Index_NumThreads].u_param;
+    if (num_threads <= 0)
+        num_threads = omp_get_max_threads();
     if (!s_tmp.empty())
         ss << s_tmp << std::endl;
     ss << ", Encryption Parameters" << std::endl
@@ -95,7 +98,8 @@ std::string MatMultRowBenchmarkDescription::getBenchmarkDescription(const hebenc
         ss << ", " << coeff_mudulus_bits;
     ss << ", 60" << std::endl
        << ", , Scale, 2^" << scale_bits << std::endl
-       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription;
+       << ", Algorithm, " << AlgorithmName << ", " << AlgorithmDescription << std::endl
+       << ", Number of threads, " << num_threads;
 
     return ss.str();
 }
@@ -124,6 +128,9 @@ MatMultRowLatencyBenchmark::MatMultRowLatencyBenchmark(hebench::cpp::BaseEngine 
     std::uint64_t multiplicative_depth = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_NumCoefficientModuli);
     std::uint64_t coeff_mudulus_bits   = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_CoefficientModulusBits);
     std::uint64_t scale_bits           = m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_ScaleExponentBits);
+    m_num_threads                      = static_cast<int>(m_w_params.get<std::uint64_t>(MatMultRowBenchmarkDescription::Index_NumThreads));
+    if (m_num_threads <= 0)
+        m_num_threads = omp_get_max_threads();
 
     if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
@@ -464,7 +471,7 @@ std::vector<seal::Ciphertext> MatMultRowLatencyBenchmark::matmultrow(const std::
 
     int spacers = static_cast<int>(m_p_ctx_wrapper->CKKSEncoder()->slot_count()) / dim2;
 
-    int num_threads = omp_get_max_threads();
+    int num_threads = m_num_threads;
     int threads_at_level[2];
     threads_at_level[0] = static_cast<int>(A.size());
     if (threads_at_level[0] > num_threads)
