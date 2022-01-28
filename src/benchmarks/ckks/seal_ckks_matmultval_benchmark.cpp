@@ -60,14 +60,14 @@ MatMultValBenchmarkDescription::~MatMultValBenchmarkDescription()
 
 std::string MatMultValBenchmarkDescription::getBenchmarkDescription(const hebench::APIBridge::WorkloadParams *p_w_params) const
 {
-    assert(p_w_params->count >= MatMultValBenchmarkDescription::NumWorkloadParams);
-
     std::stringstream ss;
     std::string s_tmp = BenchmarkDescription::getBenchmarkDescription(p_w_params);
 
     if (!p_w_params)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid null workload parameters `p_w_params`"),
                                          HEBENCH_ECODE_INVALID_ARGS);
+
+    assert(p_w_params->count >= MatMultValBenchmarkDescription::NumWorkloadParams);
 
     std::uint64_t poly_modulus_degree  = p_w_params->params[MatMultValBenchmarkDescription::Index_PolyModulusDegree].u_param;
     std::uint64_t multiplicative_depth = p_w_params->params[MatMultValBenchmarkDescription::Index_NumCoefficientModuli].u_param;
