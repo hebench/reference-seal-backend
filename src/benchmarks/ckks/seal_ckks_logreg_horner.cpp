@@ -56,7 +56,7 @@ LogRegHornerBenchmarkDescription::LogRegHornerBenchmarkDescription(hebench::APIB
     m_descriptor.workload = hebench::APIBridge::Workload::LogisticRegression_PolyD3;
 
     hebench::cpp::WorkloadParams::LogisticRegression default_workload_params;
-    default_workload_params.n = 16;
+    default_workload_params.n() = 16;
     default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
     default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(LogRegHornerBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
@@ -162,7 +162,7 @@ LogRegHornerBenchmark::LogRegHornerBenchmark(hebench::cpp::BaseEngine &engine,
                                                             static_cast<int>(m_coeff_mudulus_bits),
                                                             static_cast<int>(m_scale_bits),
                                                             seal::sec_level_type::tc128);
-    if (m_w_params.n > m_p_ctx_wrapper->CKKSEncoder()->slot_count())
+    if (m_w_params.n() > m_p_ctx_wrapper->CKKSEncoder()->slot_count())
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid workload parameter 'n'. Number of features must be under " + std::to_string(m_p_ctx_wrapper->CKKSEncoder()->slot_count()) + "."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
@@ -209,10 +209,10 @@ seal::Plaintext LogRegHornerBenchmark::encodeW(const hebench::APIBridge::DataPac
     gsl::span<const double> buffer =
         gsl::span<const double>(reinterpret_cast<const double *>(data_pack.p_buffers[0].p),
                                 data_pack.p_buffers[0].size / sizeof(double));
-    if (buffer.size() < m_w_params.n)
+    if (buffer.size() < m_w_params.n())
     {
         std::stringstream ss;
-        ss << "Insufficient features for 'W'. Expected " << m_w_params.n << ", but " << buffer.size() << " received.";
+        ss << "Insufficient features for 'W'. Expected " << m_w_params.n() << ", but " << buffer.size() << " received.";
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS(ss.str()),
                                          HEBENCH_ECODE_INVALID_ARGS);
     } // end if
@@ -275,11 +275,11 @@ std::vector<seal::Plaintext> LogRegHornerBenchmark::encodeInputs(const hebench::
         gsl::span<const double> buffer =
             gsl::span<const double>(reinterpret_cast<const double *>(data_pack.p_buffers[input_sample_i].p),
                                     data_pack.p_buffers[input_sample_i].size / sizeof(double));
-        if (buffer.size() < m_w_params.n)
+        if (buffer.size() < m_w_params.n())
         {
             std::stringstream ss;
             ss << "Invalid input sample size in sample " << input_sample_i
-               << ". Expected " << m_w_params.n << ", but " << buffer.size() << " received.";
+               << ". Expected " << m_w_params.n() << ", but " << buffer.size() << " received.";
             throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS(ss.str()),
                                              HEBENCH_ECODE_INVALID_ARGS);
         } // end if
@@ -353,7 +353,7 @@ hebench::APIBridge::Handle LogRegHornerBenchmark::decrypt(hebench::APIBridge::Ha
         this->getEngine().retrieveFromHandle<seal::Ciphertext>(h_encrypted_data, EncryptedResultTag);
     seal::Plaintext retval = m_p_ctx_wrapper->decrypt(cipher);
     // just return a copy
-    return this->getEngine().createHandle<decltype(retval)>(m_w_params.n,
+    return this->getEngine().createHandle<decltype(retval)>(m_w_params.n(),
                                                             EncodedResultTag,
                                                             std::move(retval));
 }
@@ -423,7 +423,7 @@ hebench::APIBridge::Handle LogRegHornerBenchmark::operate(hebench::APIBridge::Ha
             {
                 m_p_ctx_wrapper->evaluator()->multiply(cipher_W, cipher_inputs[input_i], cipher_dots[input_i], seal::MemoryPoolHandle::ThreadLocal());
                 m_p_ctx_wrapper->evaluator()->relinearize_inplace(cipher_dots[input_i], m_p_ctx_wrapper->relinKeys(), seal::MemoryPoolHandle::ThreadLocal());
-                cipher_dots[input_i] = m_p_ctx_wrapper->accumulateCKKS(cipher_dots[input_i], m_w_params.n);
+                cipher_dots[input_i] = m_p_ctx_wrapper->accumulateCKKS(cipher_dots[input_i], m_w_params.n());
                 m_p_ctx_wrapper->evaluator()->rescale_to_next_inplace(cipher_dots[input_i], seal::MemoryPoolHandle::ThreadLocal());
             } // end if
         }

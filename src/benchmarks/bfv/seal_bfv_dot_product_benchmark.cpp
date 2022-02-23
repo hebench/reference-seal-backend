@@ -51,7 +51,7 @@ DotProductBenchmarkDescription::DotProductBenchmarkDescription(hebench::APIBridg
     m_descriptor.workload = hebench::APIBridge::Workload::DotProduct;
 
     hebench::cpp::WorkloadParams::DotProduct default_workload_params;
-    default_workload_params.n = 100;
+    default_workload_params.n() = 100;
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(DotProductBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
@@ -121,7 +121,7 @@ DotProductBenchmark::DotProductBenchmark(hebench::cpp::BaseEngine &engine,
 {
     assert(bench_params.count >= DotProductBenchmarkDescription::NumWorkloadParams);
 
-    if (m_w_params.n <= 0)
+    if (m_w_params.n() <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Vector size must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
@@ -145,7 +145,7 @@ DotProductBenchmark::DotProductBenchmark(hebench::cpp::BaseEngine &engine,
                                                            static_cast<int>(plain_modulus_bits),
                                                            seal::sec_level_type::tc128);
     std::size_t slot_count = m_p_ctx_wrapper->BFVEncoder()->slot_count();
-    if (m_w_params.n > slot_count)
+    if (m_w_params.n() > slot_count)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Vector size cannot be greater than " + std::to_string(slot_count) + "."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 }
@@ -171,7 +171,7 @@ hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge:
     }
 
     std::vector<int64_t> values;
-    values.resize(m_w_params.n);
+    values.resize(m_w_params.n());
     for (unsigned int x = 0; x < params.size(); ++x)
     {
         for (unsigned int y = 0; y < params[x].size(); ++y)
@@ -181,7 +181,7 @@ hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge:
             const hebench::APIBridge::NativeDataBuffer &sample = parameter.p_buffers[y];
             // convert the native data to pointer to int64_t as per specification of workload
             const int64_t *p_row = reinterpret_cast<const int64_t *>(sample.p);
-            for (unsigned int x = 0; x < m_w_params.n; ++x)
+            for (unsigned int x = 0; x < m_w_params.n(); ++x)
             {
                 values[x] = p_row[x];
             }
@@ -304,7 +304,7 @@ hebench::APIBridge::Handle DotProductBenchmark::operate(hebench::APIBridge::Hand
                                                            params[1][p_param_indexers[1].value_index + result_x],
                                                            result_cipher);
                     m_p_ctx_wrapper->evaluator()->relinearize_inplace(result_cipher, m_p_ctx_wrapper->relinKeys());
-                    result_cipher = m_p_ctx_wrapper->accumulateBFV(result_cipher, m_w_params.n);
+                    result_cipher = m_p_ctx_wrapper->accumulateBFV(result_cipher, m_w_params.n());
                 } // end if
             }
             catch (...)

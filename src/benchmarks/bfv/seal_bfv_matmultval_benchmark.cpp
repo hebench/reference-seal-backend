@@ -39,9 +39,9 @@ MatMultValBenchmarkDescription::MatMultValBenchmarkDescription()
 
     // specify default arguments for this workload flexible parameters:
     hebench::cpp::WorkloadParams::MatrixMultiply default_workload_params;
-    default_workload_params.rows_M0 = 10;
-    default_workload_params.cols_M0 = 9;
-    default_workload_params.cols_M1 = 8;
+    default_workload_params.rows_M0() = 10;
+    default_workload_params.cols_M0() = 9;
+    default_workload_params.cols_M1() = 8;
     default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
     default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(MatMultValBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
@@ -141,10 +141,10 @@ MatMultValBenchmark::MatMultValBenchmark(hebench::cpp::BaseEngine &engine,
 
     // check values of the workload parameters and make sure they are supported by benchmark:
 
-    if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
+    if (m_w_params.rows_M0() <= 0 || m_w_params.cols_M0() <= 0 || m_w_params.cols_M1() <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
-    if (m_w_params.cols_M0 > poly_modulus_degree)
+    if (m_w_params.cols_M0() > poly_modulus_degree)
     {
         std::stringstream ss;
         ss << "Invalid workload parameters. This workload only supports matrices of dimensions (n x "
@@ -215,7 +215,7 @@ std::vector<seal::Plaintext> MatMultValBenchmark::encodeM1(const std::vector<std
     assert(data.size() == m_w_params.cols_M0);
 
     // transpose
-    std::vector<std::vector<std::int64_t>> data_T(m_w_params.cols_M1, std::vector<std::int64_t>(m_w_params.cols_M0));
+    std::vector<std::vector<std::int64_t>> data_T(m_w_params.cols_M1(), std::vector<std::int64_t>(m_w_params.cols_M0()));
     for (size_t row_i = 0; row_i < data.size(); ++row_i)
     {
         assert(data[row_i].size() == m_w_params.cols_M1);
@@ -236,15 +236,15 @@ std::vector<std::vector<seal::Ciphertext>>
 MatMultValBenchmark::doMatMultVal(const std::vector<seal::Ciphertext> &M0,
                                   const std::vector<seal::Ciphertext> &M1_T)
 {
-    std::vector<std::vector<seal::Ciphertext>> retval(m_w_params.rows_M0,
-                                                      std::vector<seal::Ciphertext>(m_w_params.cols_M1));
+    std::vector<std::vector<seal::Ciphertext>> retval(m_w_params.rows_M0(),
+                                                      std::vector<seal::Ciphertext>(m_w_params.cols_M1()));
 
     std::exception_ptr p_ex;
     std::mutex mtx_ex;
 #pragma omp parallel for collapse(2) num_threads(m_num_threads)
-    for (size_t i = 0; i < m_w_params.rows_M0; ++i)
+    for (size_t i = 0; i < m_w_params.rows_M0(); ++i)
     {
-        for (size_t j = 0; j < m_w_params.cols_M1; ++j)
+        for (size_t j = 0; j < m_w_params.cols_M1(); ++j)
         {
             try
             {
@@ -252,8 +252,7 @@ MatMultValBenchmark::doMatMultVal(const std::vector<seal::Ciphertext> &M0,
                 {
                     m_p_ctx_wrapper->evaluator()->multiply(M0[i], M1_T[j], retval[i][j], seal::MemoryPoolHandle::ThreadLocal());
                     m_p_ctx_wrapper->evaluator()->relinearize_inplace(retval[i][j], m_p_ctx_wrapper->relinKeys(), seal::MemoryPoolHandle::ThreadLocal());
-                    //m_p_ctx_wrapper->evaluator()->rescale_to_next_inplace(retval[i][j], seal::MemoryPoolHandle::ThreadLocal());
-                    retval[i][j] = m_p_ctx_wrapper->accumulateBFV(retval[i][j], m_w_params.cols_M0);
+                    retval[i][j] = m_p_ctx_wrapper->accumulateBFV(retval[i][j], m_w_params.cols_M0());
                 } // end if
             }
             catch (...)
@@ -288,7 +287,7 @@ hebench::APIBridge::Handle MatMultValBenchmark::encode(const hebench::APIBridge:
                                          HEBENCH_ECODE_INVALID_ARGS);
     const hebench::APIBridge::NativeDataBuffer &buffer_M0 = *raw_M0.p_buffers;
     std::vector<std::vector<std::int64_t>> matrix_data =
-        prepareMatrix(buffer_M0, m_w_params.rows_M0, m_w_params.cols_M0);
+        prepareMatrix(buffer_M0, m_w_params.rows_M0(), m_w_params.cols_M0());
     plain_M0.rows() = encodeM0(matrix_data);
 
     // encode M1
@@ -301,7 +300,7 @@ hebench::APIBridge::Handle MatMultValBenchmark::encode(const hebench::APIBridge:
                                          HEBENCH_ECODE_INVALID_ARGS);
     const hebench::APIBridge::NativeDataBuffer &buffer_M1 = *raw_M1.p_buffers;
     matrix_data =
-        prepareMatrix(buffer_M1, m_w_params.cols_M0, m_w_params.cols_M1);
+        prepareMatrix(buffer_M1, m_w_params.cols_M0(), m_w_params.cols_M1());
     plain_M1.rows() = encodeM1(matrix_data);
 
     // wrap our internal object into a handle to cross the boundary of the API Bridge
@@ -319,20 +318,20 @@ void MatMultValBenchmark::decode(hebench::APIBridge::Handle h_encoded_data, hebe
     const std::vector<std::vector<seal::Plaintext>> &encoded_result =
         this->getEngine().template retrieveFromHandle<std::vector<std::vector<seal::Plaintext>>>(h_encoded_data, MatMultValBenchmark::tagEncodedResult);
 
-    if (encoded_result.size() < m_w_params.rows_M0)
+    if (encoded_result.size() < m_w_params.rows_M0())
     {
         std::stringstream ss;
-        ss << "Invalid number of rows in encoded result. Expected " << m_w_params.rows_M0
+        ss << "Invalid number of rows in encoded result. Expected " << m_w_params.rows_M0()
            << ", but received " << encoded_result.size() << ".";
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS(ss.str()),
                                          HEBENCH_ECODE_INVALID_ARGS);
     } // end if
-    for (std::size_t row_i = 0; row_i < m_w_params.rows_M0; ++row_i)
-        if (encoded_result[row_i].size() < m_w_params.cols_M1)
+    for (std::size_t row_i = 0; row_i < m_w_params.rows_M0(); ++row_i)
+        if (encoded_result[row_i].size() < m_w_params.cols_M1())
         {
             std::stringstream ss;
             ss << "Invalid number of columns for row " << row_i << " in encoded result. Expected "
-               << m_w_params.cols_M1 << ", but received " << encoded_result[row_i].size() << ".";
+               << m_w_params.cols_M1() << ", but received " << encoded_result[row_i].size() << ".";
             throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS(ss.str()),
                                              HEBENCH_ECODE_INVALID_ARGS);
         } // end if
@@ -349,15 +348,15 @@ void MatMultValBenchmark::decode(hebench::APIBridge::Handle h_encoded_data, hebe
             {
                 // copy as much as we can
                 std::int64_t *p_data = reinterpret_cast<std::int64_t *>(buffer.p);
-                for (std::size_t row_i = 0; row_i < m_w_params.rows_M0; ++row_i)
+                for (std::size_t row_i = 0; row_i < m_w_params.rows_M0(); ++row_i)
                 {
-                    for (std::size_t col_i = 0; col_i < m_w_params.cols_M1; ++col_i)
+                    for (std::size_t col_i = 0; col_i < m_w_params.cols_M1(); ++col_i)
                     {
                         std::vector<std::int64_t> decoded;
                         m_p_ctx_wrapper->BFVEncoder()->decode(encoded_result[row_i][col_i], decoded);
-                        p_data[m_w_params.cols_M1 * row_i + col_i] = decoded.empty() ?
-                                                                         0.0 :
-                                                                         decoded.front();
+                        p_data[m_w_params.cols_M1() * row_i + col_i] = decoded.empty() ?
+                                                                           0.0 :
+                                                                           decoded.front();
                     } // end for
                 } // end for
             } // end if

@@ -56,7 +56,7 @@ ElementWiseBenchmarkDescription::ElementWiseBenchmarkDescription(hebench::APIBri
     m_descriptor.other    = 0; // no extra parameters
 
     hebench::cpp::WorkloadParams::VectorSize default_workload_params;
-    default_workload_params.n = 1000;
+    default_workload_params.n() = 1000;
     default_workload_params.add<std::uint64_t>(ElementWiseBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
     default_workload_params.add<std::uint64_t>(ElementWiseBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(ElementWiseBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
@@ -126,7 +126,7 @@ ElementWiseBenchmark::ElementWiseBenchmark(hebench::cpp::BaseEngine &engine,
 {
     assert(bench_params.count >= ElementWiseBenchmarkDescription::NumWorkloadParams);
 
-    if (m_w_params.n <= 0)
+    if (m_w_params.n() <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Vector size must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
@@ -150,7 +150,7 @@ ElementWiseBenchmark::ElementWiseBenchmark(hebench::cpp::BaseEngine &engine,
                                                             static_cast<int>(scale_bits),
                                                             seal::sec_level_type::tc128);
     std::size_t slot_count = m_p_ctx_wrapper->CKKSEncoder()->slot_count();
-    if (m_w_params.n > slot_count)
+    if (m_w_params.n() > slot_count)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Vector size cannot be greater than " + std::to_string(slot_count) + "."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 }
@@ -182,7 +182,7 @@ hebench::APIBridge::Handle ElementWiseBenchmark::encode(const hebench::APIBridge
     }
 
     std::vector<double> values;
-    values.resize(m_w_params.n);
+    values.resize(m_w_params.n());
     for (unsigned int x = 0; x < params.size(); ++x)
     {
         for (unsigned int y = 0; y < params[x].size(); ++y)
@@ -192,7 +192,7 @@ hebench::APIBridge::Handle ElementWiseBenchmark::encode(const hebench::APIBridge
             const hebench::APIBridge::NativeDataBuffer &sample = parameter.p_buffers[y];
             // convert the native data to pointer to double as per specification of workload
             const double *p_row = reinterpret_cast<const double *>(sample.p);
-            for (unsigned int x = 0; x < m_w_params.n; ++x)
+            for (unsigned int x = 0; x < m_w_params.n(); ++x)
             {
                 values[x] = p_row[x];
             }
@@ -217,7 +217,7 @@ void ElementWiseBenchmark::decode(hebench::APIBridge::Handle encoded_data, heben
         double *output_location = reinterpret_cast<double *>(p_native->p_data_packs[0].p_buffers[result_i].p);
         std::vector<double> result_vec;
         m_p_ctx_wrapper->CKKSEncoder()->decode(params[result_i], result_vec);
-        for (size_t x = 0; x < m_w_params.n; ++x)
+        for (size_t x = 0; x < m_w_params.n(); ++x)
         {
             if (std::abs(result_vec[x]) < 0.00005)
                 output_location[x] = 0;
