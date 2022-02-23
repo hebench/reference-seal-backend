@@ -205,20 +205,20 @@ std::vector<seal::Plaintext> MatMultValBenchmark::encodeMatrix(const std::vector
 
 std::vector<seal::Plaintext> MatMultValBenchmark::encodeM0(const std::vector<std::vector<double>> &data)
 {
-    assert(data.size() == m_w_params.rows_M0);
-    assert(!data.empty() && data.front().size() == m_w_params.cols_M0);
+    assert(data.size() == m_w_params.rows_M0());
+    assert(!data.empty() && data.front().size() == m_w_params.cols_M0());
     return encodeMatrix(data);
 }
 
 std::vector<seal::Plaintext> MatMultValBenchmark::encodeM1(const std::vector<std::vector<double>> &data)
 {
-    assert(data.size() == m_w_params.cols_M0);
+    assert(data.size() == m_w_params.cols_M0());
 
     // transpose
     std::vector<std::vector<double>> data_T(m_w_params.cols_M1(), std::vector<double>(m_w_params.cols_M0()));
     for (size_t row_i = 0; row_i < data.size(); ++row_i)
     {
-        assert(data[row_i].size() == m_w_params.cols_M1);
+        assert(data[row_i].size() == m_w_params.cols_M1());
         for (size_t col_i = 0; col_i < data[row_i].size(); ++col_i)
             data_T[col_i][row_i] = data[row_i][col_i];
     } // end if
