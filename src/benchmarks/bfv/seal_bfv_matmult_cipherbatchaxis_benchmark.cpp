@@ -38,9 +38,9 @@ MatMultCipherBatchAxisBenchmarkDescription::MatMultCipherBatchAxisBenchmarkDescr
 
     // specify default arguments for this workload flexible parameters:
     hebench::cpp::WorkloadParams::MatrixMultiply default_workload_params;
-    default_workload_params.rows_M0 = 10;
-    default_workload_params.cols_M0 = 9;
-    default_workload_params.cols_M1 = 8;
+    default_workload_params.rows_M0() = 10;
+    default_workload_params.cols_M0() = 9;
+    default_workload_params.cols_M1() = 8;
     default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
     default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(MatMultCipherBatchAxisBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
@@ -142,7 +142,7 @@ MatMultCipherBatchAxisBenchmark::MatMultCipherBatchAxisBenchmark(hebench::cpp::B
     if (m_num_threads <= 0)
         m_num_threads = omp_get_max_threads();
 
-    if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
+    if (m_w_params.rows_M0() <= 0 || m_w_params.cols_M0() <= 0 || m_w_params.cols_M1() <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
     if (coeff_mudulus_bits < 1)
@@ -170,8 +170,8 @@ hebench::APIBridge::Handle MatMultCipherBatchAxisBenchmark::encode(const hebench
 
     std::vector<OpParamSamplePlain> retval;
     // - for latency operation, we have a single sample per data pack
-    retval.emplace_back(m_w_params.rows_M0, m_w_params.cols_M0); // op param 0
-    retval.emplace_back(m_w_params.cols_M0, m_w_params.cols_M1); // op param 1
+    retval.emplace_back(m_w_params.rows_M0(), m_w_params.cols_M0()); // op param 0
+    retval.emplace_back(m_w_params.cols_M0(), m_w_params.cols_M1()); // op param 1
 
     for (std::uint64_t op_param_i = 0; op_param_i < MatMultCipherBatchAxisBenchmarkDescription::NumOpParams; ++op_param_i)
     {

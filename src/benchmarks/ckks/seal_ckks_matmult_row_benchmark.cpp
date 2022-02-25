@@ -38,9 +38,9 @@ MatMultRowBenchmarkDescription::MatMultRowBenchmarkDescription()
 
     // specify default arguments for this workload flexible parameters:
     hebench::cpp::WorkloadParams::MatrixMultiply default_workload_params;
-    default_workload_params.rows_M0 = 10;
-    default_workload_params.cols_M0 = 9;
-    default_workload_params.cols_M1 = 8;
+    default_workload_params.rows_M0() = 10;
+    default_workload_params.cols_M0() = 9;
+    default_workload_params.cols_M1() = 8;
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultPolyModulusDegree, "PolyModulusDegree");
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultMultiplicativeDepth, "MultiplicativeDepth");
     default_workload_params.add<std::uint64_t>(MatMultRowBenchmarkDescription::DefaultCoeffModulusBits, "CoefficientModulusBits");
@@ -132,14 +132,14 @@ MatMultRowLatencyBenchmark::MatMultRowLatencyBenchmark(hebench::cpp::BaseEngine 
     if (m_num_threads <= 0)
         m_num_threads = omp_get_max_threads();
 
-    if (m_w_params.rows_M0 <= 0 || m_w_params.cols_M0 <= 0 || m_w_params.cols_M1 <= 0)
+    if (m_w_params.rows_M0() <= 0 || m_w_params.cols_M0() <= 0 || m_w_params.cols_M1() <= 0)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Matrix dimensions must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
     if (coeff_mudulus_bits < 1)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Multiplicative depth must be greater than 0."),
                                          HEBENCH_ECODE_INVALID_ARGS);
 
-    if (m_w_params.cols_M0 > (poly_modulus_degree / 2) || m_w_params.cols_M0 * m_w_params.cols_M1 > (poly_modulus_degree / 2))
+    if (m_w_params.cols_M0() > (poly_modulus_degree / 2) || m_w_params.cols_M0() * m_w_params.cols_M1() > (poly_modulus_degree / 2))
     {
         std::stringstream ss;
         ss << "Invalid workload parameters. This workload only supports matrices of dimensions (a x b) x (b x c) where 'b' and b * c is at max " << (poly_modulus_degree / 2) << " (e.g. PolyModulusDegree / 2).";
@@ -175,13 +175,13 @@ hebench::APIBridge::Handle MatMultRowLatencyBenchmark::encode(const hebench::API
         switch (op_param_i)
         {
         case 1:
-            mat_rows = m_w_params.cols_M0;
-            mat_cols = m_w_params.cols_M1;
+            mat_rows = m_w_params.cols_M0();
+            mat_cols = m_w_params.cols_M1();
             break;
 
         default:
-            mat_rows = m_w_params.rows_M0;
-            mat_cols = m_w_params.cols_M0;
+            mat_rows = m_w_params.rows_M0();
+            mat_cols = m_w_params.cols_M0();
             break;
         } // end switch
 
@@ -210,8 +210,8 @@ hebench::APIBridge::Handle MatMultRowLatencyBenchmark::encode(const hebench::API
 
     // do the actual encode
     std::pair<OpParamSampleM0Plain, OpParamSampleM1Plain> retval =
-        std::make_pair(encodeM0(mats[0], m_w_params.rows_M0, m_w_params.cols_M0, m_w_params.cols_M1),
-                       encodeM1(mats[1], m_w_params.cols_M0, m_w_params.cols_M1));
+        std::make_pair(encodeM0(mats[0], m_w_params.rows_M0(), m_w_params.cols_M0(), m_w_params.cols_M1()),
+                       encodeM1(mats[1], m_w_params.cols_M0(), m_w_params.cols_M1()));
 
     // return encoded data as handle
     return this->getEngine().createHandle<decltype(retval)>(sizeof(retval),

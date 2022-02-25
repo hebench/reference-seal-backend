@@ -40,8 +40,15 @@ BaseEngine *createEngine()
         || HEBENCH_API_VERSION_REVISION < HEBENCH_API_VERSION_NEEDED_REVISION
         //|| std::strcmp(HEBENCH_API_VERSION_BUILD, HEBENCH_API_VERSION_NEEDED_BUILD) != 0
     )
-        throw hebench::cpp::HEBenchError(HEBERROR_MSG("Critical: Invalid HEBench API version detected."),
+    {
+        std::stringstream ss;
+        ss << "Critical: Invalid HEBench API version detected. Required: "
+           << HEBENCH_API_VERSION_NEEDED_MAJOR << "." << HEBENCH_API_VERSION_NEEDED_MINOR << "." << HEBENCH_API_VERSION_NEEDED_REVISION
+           << ", but " << HEBENCH_API_VERSION_MAJOR << "." << HEBENCH_API_VERSION_MINOR << "." << HEBENCH_API_VERSION_REVISION
+           << " received.";
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG(ss.str()),
                                          HEBENCH_ECODE_CRITICAL_ERROR);
+    } // end if
 
     return SEALEngine::create();
 }
