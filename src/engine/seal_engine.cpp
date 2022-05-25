@@ -145,5 +145,5 @@ void SEALEngine::init()
     addBenchmarkDescription(
         std::make_shared<sbe::ckks::LogRegHornerBenchmarkDescription>(hebench::APIBridge::Category::Latency));
     addBenchmarkDescription(
-        std::make_shared<sbe::ckks::LogRegHornerBenchmarkDescription>(hebench::APIBridge::Category::Offline, 20));
+        std::make_shared<sbe::ckks::LogRegHornerBenchmarkDescription>(hebench::APIBridge::Category::Offline, 0));
 }
