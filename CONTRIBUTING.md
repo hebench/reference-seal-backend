@@ -12,7 +12,7 @@ See the [Installing Resources](#resources) section for details on installing/set
 In general, when wanting to contribute code, users should expect to take the following steps:
 1. Fork from the repository that is being contributed to. If the user is part of the [HEBench](https://github.com/hebench) GitHub organization, they will be able create branches and push directly to the HEBench repositories without the need to Fork. Contact support@hebench.org for more information.
 2.  Create a branch prefixed with the contributor's GitHub username, and a title describing the content of the branch (e.g. username/titled_describing_branch).
-3.  Confirm that all of the requirements have been satisfied for contributing (see below and the [HEBench PR Template](https://github.com/hebench/backend-cpu-seal/blob/main/.github/PULL_REQUEST_TEMPLATE.md)).
+3.  Confirm that all of the requirements have been satisfied for contributing (see below and the [HEBench PR Template](https://github.com/hebench/reference-seal-backend/blob/main/.github/PULL_REQUEST_TEMPLATE.md)).
 4.  Create a Pull Request (either from the forked repository or the created branch) into the HEBench *development* branch of the repository being merged into. Note that PR's into branches other than *development* will be closed.
 5.  Pending CI passing and CODEOWNER approval, the PR will be merged into the *development* branch. With a consensus from HEBench organization members, *development* will be merged into the *main* branch periodically.
 
@@ -99,7 +99,7 @@ Documenting classes, methods, members, etc., should follow Doxygen-style documen
 - GLIBC (tested with ldd version 2.31)
 
 ### Steps to Follow
-Each repository in HEBench has build and run steps specific to the particular component. Please refer to [Building](https://github.com/hebench/backend-cpu-seal#building) and [Running the Benchmark](https://github.com/hebench/backend-cpu-seal#running-the-benchmark) for the steps specific to the HEBench SEAL Reference Backend.
+Each repository in HEBench has build and run steps specific to the particular component. Please refer to [Building](https://github.com/hebench/reference-seal-backend#building) and [Running the Benchmark](https://github.com/hebench/reference-seal-backend#running-the-benchmark) for the steps specific to the HEBench SEAL Reference Backend.
 
 ## Creating a Pull Request <a name="pull-request-template"></a>
 
@@ -107,7 +107,7 @@ Each repository in HEBench has build and run steps specific to the particular co
 - Git 2.25+
 
 ### Steps to Follow
-All Pull Requests must follow the the provided [HEBench PR Template](https://github.com/hebench/backend-cpu-seal/blob/main/.github/PULL_REQUEST_TEMPLATE.md). When you go to create a [New Pull Request](https://github.com/hebench/backend-cpu-seal/compare), the template will be populated in the PR message. Please fill in the empty fields as required.
+All Pull Requests must follow the the provided [HEBench PR Template](https://github.com/hebench/reference-seal-backend/blob/main/.github/PULL_REQUEST_TEMPLATE.md). When you go to create a [New Pull Request](https://github.com/hebench/reference-seal-backend/compare), the template will be populated in the PR message. Please fill in the empty fields as required.
 
 ## Installing Resources <a name="resources"></a>
 
