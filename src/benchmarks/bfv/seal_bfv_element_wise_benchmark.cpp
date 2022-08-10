@@ -36,7 +36,7 @@ ElementWiseBenchmarkDescription::ElementWiseBenchmarkDescription(hebench::APIBri
     switch (category)
     {
     case hebench::APIBridge::Category::Latency:
-        m_descriptor.cat_params.latency.min_test_time_ms        = 0; // any
+        m_descriptor.cat_params.min_test_time_ms                = 0; // any
         m_descriptor.cat_params.latency.warmup_iterations_count = 1;
         break;
 
@@ -161,7 +161,7 @@ ElementWiseBenchmark::~ElementWiseBenchmark()
     // nothing needed in this example
 }
 
-hebench::APIBridge::Handle ElementWiseBenchmark::encode(const hebench::APIBridge::PackedData *p_parameters)
+hebench::APIBridge::Handle ElementWiseBenchmark::encode(const hebench::APIBridge::DataPackCollection *p_parameters)
 {
     if (p_parameters->pack_count != ElementWiseBenchmarkDescription::NumOpParams)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid number of parameters detected in parameter pack. Expected 2."),
@@ -200,7 +200,7 @@ hebench::APIBridge::Handle ElementWiseBenchmark::encode(const hebench::APIBridge
                                                             std::move(params));
 }
 
-void ElementWiseBenchmark::decode(hebench::APIBridge::Handle encoded_data, hebench::APIBridge::PackedData *p_native)
+void ElementWiseBenchmark::decode(hebench::APIBridge::Handle encoded_data, hebench::APIBridge::DataPackCollection *p_native)
 {
     // retrieve our internal format object from the handle
     const std::vector<seal::Plaintext> &params =
