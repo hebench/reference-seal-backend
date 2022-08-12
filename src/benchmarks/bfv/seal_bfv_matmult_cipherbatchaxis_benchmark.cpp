@@ -30,7 +30,7 @@ MatMultCipherBatchAxisBenchmarkDescription::MatMultCipherBatchAxisBenchmarkDescr
     m_descriptor.data_type                                  = hebench::APIBridge::DataType::Int64;
     m_descriptor.category                                   = hebench::APIBridge::Category::Latency;
     m_descriptor.cat_params.latency.warmup_iterations_count = 1;
-    m_descriptor.cat_params.latency.min_test_time_ms        = 0;
+    m_descriptor.cat_params.min_test_time_ms                = 0;
     m_descriptor.cipher_param_mask                          = HEBENCH_HE_PARAM_FLAGS_ALL_CIPHER;
     m_descriptor.scheme                                     = HEBENCH_HE_SCHEME_BFV;
     m_descriptor.security                                   = HEBENCH_HE_SECURITY_128;
@@ -160,7 +160,7 @@ MatMultCipherBatchAxisBenchmark::~MatMultCipherBatchAxisBenchmark()
 {
 }
 
-hebench::APIBridge::Handle MatMultCipherBatchAxisBenchmark::encode(const hebench::APIBridge::PackedData *p_parameters)
+hebench::APIBridge::Handle MatMultCipherBatchAxisBenchmark::encode(const hebench::APIBridge::DataPackCollection *p_parameters)
 {
     // since this benchmark is cipher-cipher, encode receives 2 parameter packs from test harness
 
@@ -211,7 +211,7 @@ hebench::APIBridge::Handle MatMultCipherBatchAxisBenchmark::encode(const hebench
                                                             std::move(retval));
 }
 
-void MatMultCipherBatchAxisBenchmark::decode(hebench::APIBridge::Handle h_encoded_data, hebench::APIBridge::PackedData *p_native)
+void MatMultCipherBatchAxisBenchmark::decode(hebench::APIBridge::Handle h_encoded_data, hebench::APIBridge::DataPackCollection *p_native)
 {
     if (p_native->pack_count > 0)
     {

@@ -30,7 +30,7 @@ DotProductBenchmarkDescription::DotProductBenchmarkDescription(hebench::APIBridg
     switch (category)
     {
     case hebench::APIBridge::Category::Latency:
-        m_descriptor.cat_params.latency.min_test_time_ms        = 0; // 2s
+        m_descriptor.cat_params.min_test_time_ms                = 0; // 2s
         m_descriptor.cat_params.latency.warmup_iterations_count = 1;
         break;
 
@@ -155,7 +155,7 @@ DotProductBenchmark::~DotProductBenchmark()
     // nothing needed in this example
 }
 
-hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge::PackedData *p_parameters)
+hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge::DataPackCollection *p_parameters)
 {
     if (p_parameters->pack_count != DotProductBenchmarkDescription::NumOpParams)
         throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS("Invalid number of parameters detected in parameter pack. Expected 2."),
@@ -199,7 +199,7 @@ hebench::APIBridge::Handle DotProductBenchmark::encode(const hebench::APIBridge:
                                                             std::move(params));
 }
 
-void DotProductBenchmark::decode(hebench::APIBridge::Handle encoded_data, hebench::APIBridge::PackedData *p_native)
+void DotProductBenchmark::decode(hebench::APIBridge::Handle encoded_data, hebench::APIBridge::DataPackCollection *p_native)
 {
     // retrieve our internal format object from the handle
     const std::vector<seal::Plaintext> &params =
