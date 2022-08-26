@@ -31,7 +31,7 @@ MatMultValBenchmarkDescription::MatMultValBenchmarkDescription()
     m_descriptor.data_type                                  = hebench::APIBridge::DataType::Int64;
     m_descriptor.category                                   = hebench::APIBridge::Category::Latency;
     m_descriptor.cat_params.latency.warmup_iterations_count = 1;
-    m_descriptor.cat_params.latency.min_test_time_ms        = 0;
+    m_descriptor.cat_params.min_test_time_ms                = 0;
     m_descriptor.cipher_param_mask                          = HEBENCH_HE_PARAM_FLAGS_ALL_CIPHER;
     m_descriptor.scheme                                     = HEBENCH_HE_SCHEME_BFV;
     m_descriptor.security                                   = HEBENCH_HE_SECURITY_128;
@@ -272,7 +272,7 @@ MatMultValBenchmark::doMatMultVal(const std::vector<seal::Ciphertext> &M0,
 // Provided methods - End
 //--------------------------
 
-hebench::APIBridge::Handle MatMultValBenchmark::encode(const hebench::APIBridge::PackedData *p_parameters)
+hebench::APIBridge::Handle MatMultValBenchmark::encode(const hebench::APIBridge::DataPackCollection *p_parameters)
 {
     std::pair<InternalMatrixPlain, InternalMatrixPlain> params =
         std::make_pair<InternalMatrixPlain, InternalMatrixPlain>(InternalMatrixPlain(0), InternalMatrixPlain(1));
@@ -309,7 +309,7 @@ hebench::APIBridge::Handle MatMultValBenchmark::encode(const hebench::APIBridge:
                                                                      std::move(params)); // constructor parameters
 }
 
-void MatMultValBenchmark::decode(hebench::APIBridge::Handle h_encoded_data, hebench::APIBridge::PackedData *p_native)
+void MatMultValBenchmark::decode(hebench::APIBridge::Handle h_encoded_data, hebench::APIBridge::DataPackCollection *p_native)
 {
     // able to decode only encoded result
 
