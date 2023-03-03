@@ -33,8 +33,11 @@
 namespace hebench {
 namespace cpp {
 
-BaseEngine *createEngine()
+BaseEngine *createEngine(const std::int8_t *p_buffer, std::uint64_t size)
 {
+    // backend doesn't need extra init data
+    (void)p_buffer;
+    (void)size;
     if (HEBENCH_API_VERSION_MAJOR != HEBENCH_API_VERSION_NEEDED_MAJOR
         || HEBENCH_API_VERSION_MINOR != HEBENCH_API_VERSION_NEEDED_MINOR
         || HEBENCH_API_VERSION_REVISION < HEBENCH_API_VERSION_NEEDED_REVISION

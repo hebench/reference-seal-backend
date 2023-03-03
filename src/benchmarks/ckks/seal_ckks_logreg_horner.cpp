@@ -386,10 +386,18 @@ void LogRegHornerBenchmark::store(hebench::APIBridge::Handle h_remote_data,
 }
 
 hebench::APIBridge::Handle LogRegHornerBenchmark::operate(hebench::APIBridge::Handle h_remote_packed,
-                                                          const hebench::APIBridge::ParameterIndexer *p_param_indexers)
+                                                          const hebench::APIBridge::ParameterIndexer *p_param_indexers,
+                                                          std::uint64_t indexers_count)
 {
-    // input to operation is always EncryptedOpParams
+    if (indexers_count < LogRegHornerBenchmarkDescription::NumOpParams)
+    {
+        std::stringstream ss;
+        ss << "Invalid number of indexers. Expected " << LogRegHornerBenchmarkDescription::NumOpParams
+           << ", but " << indexers_count << " received." << std::endl;
+        throw hebench::cpp::HEBenchError(HEBERROR_MSG_CLASS(ss.str()), HEBENCH_ECODE_INVALID_ARGS);
+    } // end if
 
+    // input to operation is always EncryptedOpParams
     const EncryptedOpParams &remote =
         this->getEngine().retrieveFromHandle<EncryptedOpParams>(h_remote_packed, EncryptedOpParamsTag);
 
